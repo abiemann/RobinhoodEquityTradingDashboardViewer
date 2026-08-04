@@ -12,6 +12,9 @@ body {
     calc(20px + env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
 }
 header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 auto 14px; max-width:1100px; }
+.header-title-row { display:flex; align-items:center; flex:0 0 100%; gap:8px; min-width:0; }
+.header-title-row h1 { min-width:0; margin-right:0; }
+.header-title-row #forget-header { flex:0 0 auto; margin-left:auto; }
 .header-actions { display:flex; gap:8px; margin-left:auto; }
 .small-action { padding:3px 8px; color:var(--dim); background:transparent; border:1px solid var(--line); border-radius:6px; font:inherit; font-size:11px; cursor:pointer; }
 .small-action.connect-action { color:var(--green); border-color:var(--green); }
@@ -88,7 +91,6 @@ footer a,.document a { color:var(--blue); }
 [hidden] { display:none !important; }
 @media (max-width:540px) {
   body { font-size:13px; }
-  h1 { flex-basis:100%; }
   section { padding:12px; }
   .cards { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .card .value { font-size:18px; }

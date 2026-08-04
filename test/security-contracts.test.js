@@ -53,6 +53,21 @@ test("shell URLs are project-subpath safe and service worker caches no APIs", as
   assert.doesNotMatch(worker, /googleapis|accounts\.google|\/api\//i);
 });
 
+test("Forget this device shares the title row and stays right aligned", async () => {
+  const [html, styles] = await Promise.all([source("index.html"), source("styles.css")]);
+  assert.match(
+    html,
+    /<div class="header-title-row">\s*<h1>RHMRA Dashboard<\/h1>\s*<button id="forget-header" class="small-action" type="button" hidden>Forget this device<\/button>\s*<\/div>/s,
+  );
+  assert.match(
+    html,
+    /<div class="header-actions">\s*<button id="connect-header"[^>]*>Connect Google Drive<\/button>\s*<\/div>/s,
+  );
+  assert.match(styles, /\.header-title-row\s*\{[^}]*display:flex;[^}]*flex:0 0 100%;/s);
+  assert.match(styles, /\.header-title-row #forget-header\s*\{[^}]*flex:0 0 auto;[^}]*margin-left:auto;/s);
+  assert.doesNotMatch(styles, /@media \(max-width:540px\)[\s\S]*?h1\s*\{[^}]*flex-basis:100%;/);
+});
+
 test("mobile reload defenses keep native scrolling and ship the recovery module", async () => {
   const [html, styles, worker] = await Promise.all([
     source("index.html"), source("styles.css"), source("sw.js"),
@@ -65,7 +80,7 @@ test("mobile reload defenses keep native scrolling and ship the recovery module"
   assert.match(styles, /html\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.doesNotMatch(styles, /touch-action\s*:/);
-  assert.match(worker, /rhmra-phone-shell-v7/);
+  assert.match(worker, /rhmra-phone-shell-v8/);
   assert.match(worker, /"\.\/src\/cache\.js"/);
   assert.match(worker, /"\.\/src\/expiry\.js"/);
 });

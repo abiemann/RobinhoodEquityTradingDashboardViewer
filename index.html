@@ -16,13 +16,15 @@
 </head>
 <body>
   <header>
-    <h1>RHMRA Dashboard</h1>
+    <div class="header-title-row">
+      <h1>RHMRA Dashboard</h1>
+      <button id="forget-header" class="small-action" type="button" hidden>Forget this device</button>
+    </div>
     <span id="mode" class="pill" hidden>PHONE</span>
     <span id="freshness" class="pill" hidden>waiting</span>
     <span id="sync" class="pill" hidden></span>
     <div class="header-actions">
       <button id="connect-header" class="small-action connect-action" type="button" hidden>Connect Google Drive</button>
-      <button id="forget-header" class="small-action" type="button" hidden>Forget this device</button>
     </div>
   </header>
 
