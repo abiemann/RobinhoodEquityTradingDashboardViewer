@@ -27,6 +27,7 @@ import {
   hideNotice,
   markChecked,
   renderDashboard,
+  setHeaderStatusPillsVisible,
   setWelcome,
   showNotice,
 } from "./render.js";
@@ -321,6 +322,7 @@ function prepareDrive() {
 }
 
 function askToConnect(message = "Pairing is ready. Connect the Google account used by the laptop uploader.") {
+  setHeaderStatusPillsVisible(false);
   poller?.stop();
   drive?.disconnect();
   setHeaderForget(true);
@@ -376,6 +378,7 @@ async function restoreCachedView() {
     if (!restored) return false;
     scheduleSnapshotExpiry(Date.parse(restored.envelope.expires_at));
     renderDashboard(restored.payload);
+    setHeaderStatusPillsVisible(false);
     dashboardVisible = true;
     setHeaderForget(true);
     setSync("last verified", true);
@@ -450,6 +453,7 @@ async function refreshSnapshot() {
     setHeaderConnect(false);
     setHeaderForget(true);
     markChecked();
+    setHeaderStatusPillsVisible(true);
   } catch (error) {
     if (error instanceof DriveAuthRequiredError) {
       askToConnect("Google Drive authorization expired. Reconnect to resume private updates.");

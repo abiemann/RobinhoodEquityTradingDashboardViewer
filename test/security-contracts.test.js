@@ -58,13 +58,50 @@ test("mobile reload defenses keep native scrolling and ship the recovery module"
     source("index.html"), source("styles.css"), source("sw.js"),
   ]);
   assert.match(html, /id="connect-header"[^>]*\bhidden\b[^>]*>Connect Google Drive<\/button>/);
+  for (const id of ["mode", "freshness", "sync"]) {
+    assert.match(html, new RegExp(`id="${id}"[^>]*\\bhidden\\b`));
+  }
   assert.match(html, /id="welcome"[^>]*\bhidden\b/);
   assert.match(styles, /html\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.doesNotMatch(styles, /touch-action\s*:/);
-  assert.match(worker, /rhmra-phone-shell-v6/);
+  assert.match(worker, /rhmra-phone-shell-v7/);
   assert.match(worker, /"\.\/src\/cache\.js"/);
   assert.match(worker, /"\.\/src\/expiry\.js"/);
+});
+
+test("disconnected cached dashboards hide status pills until a verified refresh", async () => {
+  const [app, render] = await Promise.all([source("src/app.js"), source("src/render.js")]);
+
+  const clear = render.slice(
+    render.indexOf("export function clearDashboard"),
+    render.indexOf("function renderAccount"),
+  );
+  assert.match(clear, /setHeaderStatusPillsVisible\(false\)/);
+
+  const connectPrompt = app.slice(
+    app.indexOf("function askToConnect"),
+    app.indexOf("async function discardCachedEnvelope"),
+  );
+  assert.match(connectPrompt, /setHeaderStatusPillsVisible\(false\)/);
+
+  const restore = app.slice(
+    app.indexOf("async function restoreCachedView"),
+    app.indexOf("async function refreshSnapshot"),
+  );
+  assert.ok(restore.indexOf("renderDashboard(restored.payload)") <
+    restore.indexOf("setHeaderStatusPillsVisible(false)"));
+
+  const refresh = app.slice(
+    app.indexOf("async function refreshSnapshot"),
+    app.indexOf("function setConnectBusy"),
+  );
+  const persisted = refresh.indexOf("await persistUpdates(updates)");
+  const rendered = refresh.indexOf("renderDashboard(payload)");
+  const checked = refresh.indexOf("markChecked()");
+  const shown = refresh.indexOf("setHeaderStatusPillsVisible(true)");
+  assert.ok(persisted >= 0 && persisted < rendered && rendered < checked && checked < shown);
+  assert.equal((app.match(/setHeaderStatusPillsVisible\(true\)/g) || []).length, 1);
 });
 
 test("verified dashboard expiry is guarded across refresh and mobile suspension", async () => {

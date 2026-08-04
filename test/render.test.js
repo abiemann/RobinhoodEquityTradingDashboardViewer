@@ -9,6 +9,7 @@ import {
   eraPnlPresentation,
   eraTableValues,
   pnlReconciliationPresentation,
+  setHeaderStatusPillsVisible,
 } from "../src/render.js";
 
 test("enhanced broker card renders validated integer cents instead of floating-point rounding", () => {
@@ -75,6 +76,27 @@ test("phone header omits the internal rules-version badge", async () => {
 
   assert.doesNotMatch(markup, /id=["']rules["']/);
   assert.doesNotMatch(renderer, /byId\(["']rules["']\)/);
+});
+
+test("header status pills hide stale prior state and reveal together", () => {
+  const previousDocument = globalThis.document;
+  const pills = new Map(["mode", "freshness", "sync"].map((id) => [id, { hidden: false }]));
+  globalThis.document = { getElementById: (id) => pills.get(id) || null };
+  try {
+    setHeaderStatusPillsVisible(false);
+    assert.deepEqual([...pills.values()].map((pill) => pill.hidden), [true, true, true]);
+    setHeaderStatusPillsVisible(true);
+    assert.deepEqual([...pills.values()].map((pill) => pill.hidden), [false, false, false]);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});
+
+test("matched era rows omit a redundant quality badge", async () => {
+  const renderer = await readFile(new URL("../src/render.js", import.meta.url), "utf8");
+  assert.doesNotMatch(renderer, /quality:\s*"matched ledger pool"/);
+  assert.match(renderer, /if \(presentation\.quality\) \{\s*profitCell\.appendChild\(node\("span", "pnl-quality", presentation\.quality\)\);/s);
 });
 
 test("broker-versus-strategy differences remain explicit and authoritative", () => {
@@ -146,7 +168,7 @@ test("legacy snapshots and era quality never overclaim matched basis", () => {
   });
   assert.deepEqual(eraPnlPresentation({
     realized_pnl: 21.2906622026, realized_pnl_cents: 2129, pnl_quality: "matched-ledger-pool",
-  }), { text: "$21.29", quality: "matched ledger pool", rankEligible: true });
+  }), { text: "$21.29", quality: "", rankEligible: true });
   assert.deepEqual(eraPnlPresentation({
     realized_pnl: 21.28, realized_pnl_cents: 2128, pnl_quality: "estimated",
   }), { text: "~$21.28", quality: "estimated", rankEligible: false });

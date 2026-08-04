@@ -1,4 +1,5 @@
 const viewState = { eraSignature: null, erasExpanded: false };
+const HEADER_STATUS_PILL_IDS = Object.freeze(["mode", "freshness", "sync"]);
 
 export const ERA_TABLE_HEADERS = Object.freeze([
   "Dates", "Buys", "Sells", "STOPs", "Strategy P&L (ledger fill basis)",
@@ -112,7 +113,7 @@ export function eraPnlPresentation(era) {
   if (era.pnl_quality === "incomplete") {
     return { text: `${amount} + unavailable`, quality: "incomplete", rankEligible: false };
   }
-  return { text: amount, quality: "matched ledger pool", rankEligible: true };
+  return { text: amount, quality: "", rankEligible: true };
 }
 
 function localTime(value) {
@@ -155,6 +156,10 @@ export function hideWelcome() {
   byId("welcome").hidden = true;
 }
 
+export function setHeaderStatusPillsVisible(visible) {
+  for (const id of HEADER_STATUS_PILL_IDS) byId(id).hidden = !visible;
+}
+
 export function clearDashboard() {
   byId("dashboard").hidden = true;
   for (const id of ["account", "positions", "runs", "run-detail", "eras", "pnl-reconciliation"]) clear(byId(id));
@@ -164,6 +169,7 @@ export function clearDashboard() {
   byId("freshness").textContent = "waiting";
   byId("freshness").className = "pill";
   byId("sync").textContent = "";
+  setHeaderStatusPillsVisible(false);
 }
 
 function renderAccount(payload) {
@@ -297,7 +303,9 @@ function renderEras(eras) {
       profitCell.appendChild(mark);
     }
     profitCell.appendChild(document.createTextNode(presentation.text));
-    profitCell.appendChild(node("span", "pnl-quality", presentation.quality));
+    if (presentation.quality) {
+      profitCell.appendChild(node("span", "pnl-quality", presentation.quality));
+    }
     table.appendChild(row);
   });
   wrapper.appendChild(table);
