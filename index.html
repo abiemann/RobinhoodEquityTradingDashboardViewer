@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#14161a">
+  <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; script-src 'self' https://accounts.google.com; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data:; connect-src 'self' https://www.googleapis.com https://accounts.google.com; frame-src https://accounts.google.com; worker-src 'self'; manifest-src 'self'">
+  <title>RHMRA Phone Dashboard</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./src/app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>RHMRA Dashboard</h1>
+    <span id="mode" class="pill">PHONE</span>
+    <span id="freshness" class="pill">waiting</span>
+    <span id="rules" class="pill"></span>
+    <span id="sync" class="pill"></span>
+    <button id="forget-header" class="small-action" type="button" hidden>Forget this device</button>
+  </header>
+
+  <section id="ios-install-gate" class="install-gate" role="alert" hidden>
+    <h2>Install before pairing</h2>
+    <p><strong>Pairing is disabled in an iPhone or iPad browser.</strong> Safari and a Home Screen app keep separate private storage, so pairing here would not transfer to the installed app.</p>
+    <ol>
+      <li>Open this page in Safari.</li>
+      <li>Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</li>
+      <li>Open <strong>RHMRA</strong> from the Home Screen and paste the private pairing link there.</li>
+    </ol>
+  </section>
+
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+  <section id="welcome" class="welcome">
+    <h2>Private phone viewer</h2>
+    <p id="welcome-message">Scan a View on Phone QR code from your laptop to pair this device.</p>
+    <div class="actions">
+      <button id="paste-pairing" class="action" type="button">Paste private pairing link</button>
+      <button id="connect" class="action primary" type="button" hidden>Connect Google Drive</button>
+      <button id="install" class="action" type="button" hidden>Install app</button>
+      <button id="forget" class="action danger" type="button" hidden>Forget this device</button>
+    </div>
+    <p class="privacy">The decryption key stays on this device. Google Drive stores only encrypted dashboard snapshots in the app's hidden data folder.</p>
+  </section>
+
+  <main id="dashboard" hidden>
+    <section><h2>Account</h2><div id="account" class="cards"></div></section>
+    <section><h2>Positions</h2><div id="positions"></div></section>
+    <section>
+      <h2>Runs today — tap a run for details</h2>
+      <div id="runs" class="runs"></div>
+      <div id="run-detail" class="run-detail" aria-live="polite"></div>
+    </section>
+    <section><h2>Realized P&amp;L by rules era</h2><div id="eras"></div></section>
+  </main>
+
+  <footer>
+    Read-only • end-to-end encrypted • no brokerage credentials on this device •
+    <a href="./privacy.html">Privacy</a>
+  </footer>
+</body>
+</html>

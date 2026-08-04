@@ -1,0 +1,14 @@
+{
+  "name": "robinhood-equity-trading-dashboard-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "type": "module",
+  "description": "Installable, end-to-end encrypted phone viewer for the RHMRA dashboard",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

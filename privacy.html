@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#14161a">
+  <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; style-src 'self'; img-src 'self' data:">
+  <title>RHMRA Phone Dashboard Privacy</title>
+  <link rel="icon" href="./icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <article class="document">
+    <h1>RHMRA Phone Dashboard privacy</h1>
+    <p><strong>Effective August 3, 2026.</strong></p>
+    <p>RHMRA Phone Dashboard is a static, read-only Progressive Web App. Its maintainer does not operate an application server that receives dashboard data, Google access tokens, pairing keys, or usage activity.</p>
+
+    <h2>Google Drive access</h2>
+    <p>The app requests only <code>https://www.googleapis.com/auth/drive.appdata</code>. It communicates directly from your browser to Google Sign-In and the Google Drive API to read the encrypted RHMRA snapshot stored in this app's hidden <code>appDataFolder</code>. The app cannot browse your normal Drive files through this scope.</p>
+    <p>Google processes sign-in and Drive requests under Google's own terms and privacy policy. Google can observe your signed-in account, the OAuth application/client and grant, request IP and device/browser details, Drive API operations, hidden app-data filename and file ID, ciphertext size, file timestamps, and request timing. Encryption protects the dashboard contents, not that metadata. The OAuth access token is kept only in browser memory and is discarded on reload, disconnect, or Forget this device.</p>
+
+    <h2>Dashboard data and encryption</h2>
+    <p>The laptop uploader places only an encrypted dashboard envelope in Google Drive. The phone viewer accepts a strict allowlist of dashboard fields and does not request raw trade ledgers, gate files, account or order identifiers, local paths, constants, or brokerage credentials.</p>
+    <p>The decryption key arrives in the private pairing link fragment, is removed from the address bar immediately, and stays on the paired device. Where supported, it is stored in IndexedDB as a non-extractable Web Crypto key. A browser that cannot clone that key may use a session-only fallback that disappears when the tab closes.</p>
+
+    <h2>Local storage and deletion</h2>
+    <p>The app stores the pairing identifier, provider, non-extractable key, last accepted sequence metadata, and Google Drive file ID locally so it can reject rollback and resume the same pairing. It stores no Google access token, decrypted dashboard, analytics identifier, or advertising identifier.</p>
+    <p><strong>Forget this device</strong> deletes the local pairing and key and discards the current access token. It does not revoke the shared Google application grant or delete the encrypted Drive file. The laptop uploader controls that file and its expiration. Stopping a share removes the current file but retains the stable pairing, allowing a later laptop session to resume automatically. Revoking the application's Google access is a separate Google Account action and may also require reconnecting the laptop uploader.</p>
+
+    <h2>No analytics, ads, or operator collection</h2>
+    <p>The app contains no analytics SDK, advertising SDK, tracking pixel, or developer-operated data collection endpoint. The Google Cloud project maintainer may receive aggregate OAuth/API quota, latency, and error metrics, but the app does not send that maintainer your dashboard plaintext, pairing key, Google access token, or Drive file. A static hosting provider may keep ordinary web access logs under that provider's policy. The private pairing fragment is not sent as part of those HTTP requests.</p>
+
+    <h2>Questions or security reports</h2>
+    <p>Open an issue in the <a href="https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer/issues" rel="noopener noreferrer">RobinhoodEquityTradingDashboardViewer repository</a>. Never include a QR code, private pairing link, decryption key, Google token, or brokerage information in a report.</p>
+    <p><a href="./">Return to the dashboard</a></p>
+  </article>
+</body>
+</html>
