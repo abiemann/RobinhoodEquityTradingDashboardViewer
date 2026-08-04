@@ -5,8 +5,15 @@
   "packageManager": "pnpm@11.9.0",
   "type": "module",
   "description": "Installable, end-to-end encrypted phone viewer for the RHMRA dashboard",
+  "repository": "https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer.git",
+  "homepage": "https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/",
+  "bugs": {
+    "url": "https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer/issues"
+  },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "check": "node scripts/check-js.mjs",
+    "verify": "node scripts/check-js.mjs && node --test"
   },
   "engines": {
     "node": ">=20"

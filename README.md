@@ -93,9 +93,9 @@ The web OAuth client ID is public configuration, not a password. Do not add an O
 
 ### 3. Publish the static site
 
-Publish the repository root over HTTPS. GitHub Pages works without a build step and is the expected deployment target. All URLs, the manifest, and the service-worker scope are relative, so the project URL `https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/` is supported.
+The repository includes a pinned GitHub Actions workflow that verifies the PWA and publishes only its static application allowlist. In **Settings -> Pages**, set **Source** to **GitHub Actions**. The workflow deploys automatically from `main`; a maintainer can also start it manually from **Actions -> Publish PWA to GitHub Pages** for a controlled prerelease. It refuses to publish while `config.js` still contains the placeholder Google client ID.
 
-For GitHub Pages, select the production branch and repository root in **Settings -> Pages**, then confirm:
+All URLs, the manifest, and the service-worker scope are relative, so the project URL `https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/` is supported. After deployment, confirm:
 
 - the dashboard loads at the project URL;
 - `privacy.html` is public;
@@ -173,8 +173,10 @@ See [Privacy](./privacy.html) and [Security](./SECURITY.md) for details and limi
 No runtime dependencies or build step are required. Use Node.js 20 or newer for tests. The dependency-free `pnpm-lock.yaml` is intentionally kept so the package-manager format remains reproducible:
 
 ```powershell
-pnpm test
+npm run verify
 ```
+
+Every push and pull request to `main` or `ft_view_phone2` runs the same syntax and test checks in GitHub Actions without installing third-party packages.
 
 Serve the repository root on localhost rather than opening `index.html` directly so ES modules and the service worker work correctly. For example:
 
