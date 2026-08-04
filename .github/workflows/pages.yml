@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - ft_view_phone2
   workflow_dispatch:
 
 permissions: {}
@@ -14,7 +15,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.ref_name == 'main' || (github.event_name == 'workflow_dispatch' && github.ref_name == 'ft_view_phone2')
+    if: github.ref_name == 'main' || github.ref_name == 'ft_view_phone2'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -49,7 +50,7 @@ jobs:
 
   deploy:
     needs: build
-    if: github.ref_name == 'main' || (github.event_name == 'workflow_dispatch' && github.ref_name == 'ft_view_phone2')
+    if: github.ref_name == 'main' || github.ref_name == 'ft_view_phone2'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
