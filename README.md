@@ -177,7 +177,7 @@ No runtime dependencies or build step are required. Use Node.js 20 or newer for 
 npm run verify
 ```
 
-Every push and pull request to `main` or `ft_view_phone2` runs the same syntax and test checks in GitHub Actions without installing third-party packages.
+Every push and pull request to `main` runs the same syntax and test checks in GitHub Actions without installing third-party packages.
 
 Serve the repository root on localhost rather than opening `index.html` directly so ES modules and the service worker work correctly. For example:
 
