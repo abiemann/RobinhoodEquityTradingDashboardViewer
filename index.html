@@ -49,14 +49,18 @@
   </section>
 
   <main id="dashboard" hidden>
-    <section><h2>Account</h2><div id="account" class="cards"></div></section>
+    <section>
+      <h2>Account</h2>
+      <div id="account" class="cards"></div>
+      <div id="pnl-reconciliation" class="pnl-reconciliation" role="status" aria-live="polite" hidden></div>
+    </section>
     <section><h2>Positions</h2><div id="positions"></div></section>
     <section>
       <h2>Runs today — tap a run for details</h2>
       <div id="runs" class="runs"></div>
       <div id="run-detail" class="run-detail" aria-live="polite"></div>
     </section>
-    <section><h2>Realized P&amp;L by rules era</h2><div id="eras"></div></section>
+    <section><h2 id="eras-heading">Strategy P&amp;L by rules era</h2><div id="eras"></div></section>
   </main>
 
   <footer>

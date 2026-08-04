@@ -8,6 +8,20 @@ const ISO_UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const ENVELOPE_KEYS = Object.freeze([
   "captured_at", "ciphertext", "expires_at", "iv", "schema_version", "sequence", "share_id",
 ]);
+const PAYLOAD_KEYS = Object.freeze([
+  "schema_version", "captured_at", "expires_at", "mode", "snapshot", "runs", "eras",
+]);
+const ENHANCED_PAYLOAD_KEYS = Object.freeze([...PAYLOAD_KEYS, "pnl_reconciliation"]);
+const ERA_KEYS = Object.freeze([
+  "rules_version", "first", "last", "buys", "sells", "stops", "realized_pnl",
+]);
+const ENHANCED_ERA_KEYS = Object.freeze([...ERA_KEYS, "realized_pnl_cents", "pnl_quality"]);
+const PNL_RECONCILIATION_KEYS = Object.freeze([
+  "date_et", "broker_realized_pnl_cents", "strategy_realized_pnl_cents", "difference_cents",
+  "realized_fill_count", "available_fill_count", "matched_fill_count", "status",
+]);
+const PNL_QUALITIES = new Set(["matched-ledger-pool", "estimated", "incomplete"]);
+const PNL_RECONCILIATION_STATUSES = new Set(["agrees", "difference", "qualified"]);
 
 export class ProtocolError extends Error {
   constructor(code, message) {
@@ -30,6 +44,23 @@ function finite(value) {
 
 function boundedText(value, maximum) {
   return typeof value === "string" && value.length <= maximum;
+}
+
+function safeInteger(value, { nonnegative = false } = {}) {
+  return Number.isSafeInteger(value) && (!nonnegative || value >= 0);
+}
+
+function moneyCents(value) {
+  if (!finite(value)) return null;
+  const absolute = Math.round(Math.abs(value) * 100);
+  if (!Number.isSafeInteger(absolute)) return null;
+  return value < 0 ? -absolute : absolute;
+}
+
+function canonicalDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const millis = Date.parse(`${value}T00:00:00.000Z`);
+  return Number.isFinite(millis) && new Date(millis).toISOString().slice(0, 10) === value;
 }
 
 export function canonicalTimestamp(value, field = "timestamp") {
@@ -115,8 +146,9 @@ export function validateEnvelope(value, expectedShareId, now, limits) {
 }
 
 export function validatePayload(value, envelope) {
-  const topKeys = ["schema_version", "captured_at", "expires_at", "mode", "snapshot", "runs", "eras"];
-  if (!exactObject(value, topKeys) || value.schema_version !== ENVELOPE_SCHEMA_VERSION ||
+  const legacyPayload = exactObject(value, PAYLOAD_KEYS);
+  const enhancedPayload = exactObject(value, ENHANCED_PAYLOAD_KEYS);
+  if ((!legacyPayload && !enhancedPayload) || value.schema_version !== ENVELOPE_SCHEMA_VERSION ||
       value.captured_at !== envelope.captured_at || value.expires_at !== envelope.expires_at ||
       !exactObject(value.mode, ["dry_run"]) || typeof value.mode.dry_run !== "boolean") {
     throw new ProtocolError("invalid_payload", "The decrypted snapshot schema is invalid.");
@@ -160,11 +192,51 @@ export function validatePayload(value, envelope) {
     throw new ProtocolError("invalid_eras", "The decrypted rules eras are invalid.");
   }
   for (const era of value.eras) {
-    if (!exactObject(era, ["rules_version", "first", "last", "buys", "sells", "stops", "realized_pnl"]) ||
+    const keysValid = enhancedPayload
+      ? exactObject(era, ENHANCED_ERA_KEYS)
+      : exactObject(era, ERA_KEYS);
+    if (!keysValid ||
         !boundedText(era.rules_version, 128) || !boundedText(era.first, 16) || !boundedText(era.last, 16) ||
-        ![era.buys, era.sells, era.stops].every((number) => Number.isSafeInteger(number) && number >= 0) ||
+        ![era.buys, era.sells, era.stops].every((number) => safeInteger(number, { nonnegative: true })) ||
         !finite(era.realized_pnl)) {
       throw new ProtocolError("invalid_era", "A decrypted rules era is invalid.");
+    }
+    if (enhancedPayload &&
+        (!safeInteger(era.realized_pnl_cents) || moneyCents(era.realized_pnl) !== era.realized_pnl_cents ||
+         !PNL_QUALITIES.has(era.pnl_quality) ||
+         (era.pnl_quality !== "matched-ledger-pool" && era.sells === 0))) {
+      throw new ProtocolError("invalid_era", "A decrypted rules era has invalid P&L attribution.");
+    }
+  }
+
+  if (enhancedPayload) {
+    const reconciliation = value.pnl_reconciliation;
+    const cents = [
+      reconciliation?.broker_realized_pnl_cents,
+      reconciliation?.strategy_realized_pnl_cents,
+      reconciliation?.difference_cents,
+    ];
+    const counts = [
+      reconciliation?.realized_fill_count,
+      reconciliation?.available_fill_count,
+      reconciliation?.matched_fill_count,
+    ];
+    const allMatched = reconciliation?.matched_fill_count === reconciliation?.realized_fill_count;
+    const expectedStatus = !allMatched
+      ? "qualified"
+      : reconciliation?.difference_cents === 0 ? "agrees" : "difference";
+    if (!exactObject(reconciliation, PNL_RECONCILIATION_KEYS) ||
+        !canonicalDate(reconciliation.date_et) ||
+        !cents.every((number) => safeInteger(number)) ||
+        !counts.every((number) => safeInteger(number, { nonnegative: true })) ||
+        reconciliation.matched_fill_count > reconciliation.available_fill_count ||
+        reconciliation.available_fill_count > reconciliation.realized_fill_count ||
+        reconciliation.broker_realized_pnl_cents !== moneyCents(snapshot.realized_pnl_today) ||
+        reconciliation.difference_cents !==
+          reconciliation.broker_realized_pnl_cents - reconciliation.strategy_realized_pnl_cents ||
+        !PNL_RECONCILIATION_STATUSES.has(reconciliation.status) ||
+        reconciliation.status !== expectedStatus) {
+      throw new ProtocolError("invalid_pnl_reconciliation", "The P&L comparison is invalid.");
     }
   }
   return value;

@@ -150,7 +150,7 @@ AES-GCM additional authenticated data is the UTF-8 encoding of:
 JSON.stringify([schema_version, share_id, sequence, captured_at, expires_at])
 ```
 
-The decrypted payload schema is validated strictly by [`src/protocol.js`](./src/protocol.js). It contains only `mode`, the account summary/positions, runs, and rules-era aggregates needed by the dashboard. Do not add raw ledgers, account/order identifiers, credentials, filesystem paths, constants, or arbitrary HTML.
+The decrypted payload schema is validated strictly by [`src/protocol.js`](./src/protocol.js). Schema version 1 accepts the original legacy shape and one coordinated enhanced shape. Enhanced payloads add `pnl_reconciliation` plus `realized_pnl_cents` and `pnl_quality` on every rules-era row. Integer cents are the display authority. Reconciliation counts enforce `0 <= matched_fill_count <= available_fill_count <= realized_fill_count`; incomplete or estimated comparisons must use `qualified`, while fully matched comparisons use `agrees` only for a zero-cent difference and `difference` otherwise. The comparison is between broker telemetry and the strategy's ledger-fill basis—it does not claim tax-lot reconciliation, and equal broker/subtotal cents never imply agreement when any strategy fill is unavailable or unmatched. The payload contains only `mode`, the account summary/positions, runs, P&L comparison, and rules-era aggregates needed by the dashboard. Do not add raw ledgers, account/order identifiers, credentials, filesystem paths, constants, or arbitrary HTML.
 
 The complete link emitted by the laptop must append the exact fragment to the deployed PWA base URL. The AES key belongs only in the fragment; never put it in a query string, file, API request, or log.
 

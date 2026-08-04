@@ -23,8 +23,75 @@ function money(value) {
   return `${value < 0 ? "-$" : "$"}${Math.abs(value).toFixed(2)}`;
 }
 
+function moneyFromCents(value, { signed = false } = {}) {
+  if (!Number.isSafeInteger(value)) return "unavailable";
+  const negative = value < 0;
+  const absolute = Math.abs(value);
+  const prefix = negative ? "-$" : signed && value > 0 ? "+$" : "$";
+  return `${prefix}${Math.floor(absolute / 100)}.${String(absolute % 100).padStart(2, "0")}`;
+}
+
 function pnlClass(value) {
   return value > 0 ? "positive" : value < 0 ? "negative" : "";
+}
+
+export function pnlReconciliationPresentation(reconciliation) {
+  if (!reconciliation) {
+    return {
+      className: "pnl-reconciliation legacy",
+      text: "Broker vs strategy comparison is unavailable in this legacy snapshot.",
+    };
+  }
+  const broker = moneyFromCents(reconciliation.broker_realized_pnl_cents);
+  const strategy = moneyFromCents(reconciliation.strategy_realized_pnl_cents);
+  const fills = `${reconciliation.matched_fill_count}/${reconciliation.realized_fill_count} strategy fills matched to the ledger pool`;
+  if (reconciliation.status === "qualified") {
+    const difference = moneyFromCents(reconciliation.difference_cents, { signed: true });
+    const available = `${reconciliation.available_fill_count}/${reconciliation.realized_fill_count} strategy fills available`;
+    if (reconciliation.available_fill_count < reconciliation.realized_fill_count) {
+      return {
+        className: "pnl-reconciliation qualified",
+        text: `Incomplete available strategy subtotal · broker ${broker} · available strategy subtotal ${strategy} · displayed difference ${difference} · ${available} · ${fills}. The subtotal excludes unavailable strategy fills. Broker is authoritative.`,
+      };
+    }
+    return {
+      className: "pnl-reconciliation qualified",
+      text: `Estimated strategy comparison · broker ${broker} · estimated strategy ${strategy} · displayed difference ${difference} · ${available} · ${fills}. Broker is authoritative.`,
+    };
+  }
+  if (reconciliation.status === "agrees") {
+    return {
+      className: "pnl-reconciliation agrees",
+      text: `Broker and strategy agree to the cent · broker ${broker} · strategy ${strategy} · ${fills}`,
+    };
+  }
+  const difference = moneyFromCents(reconciliation.difference_cents, { signed: true });
+  return {
+    className: "pnl-reconciliation difference",
+    text: `Broker vs strategy difference · broker ${broker} · strategy ${strategy} · difference ${difference} · ${fills}. Broker is authoritative.`,
+  };
+}
+
+export function brokerRealizedTodayPresentation(payload) {
+  const reconciliation = payload?.pnl_reconciliation;
+  if (Number.isSafeInteger(reconciliation?.broker_realized_pnl_cents)) {
+    return moneyFromCents(reconciliation.broker_realized_pnl_cents);
+  }
+  return money(payload?.snapshot?.realized_pnl_today);
+}
+
+export function eraPnlPresentation(era) {
+  if (!Number.isSafeInteger(era.realized_pnl_cents) || typeof era.pnl_quality !== "string") {
+    return { text: money(era.realized_pnl), quality: "legacy ledger", rankEligible: false };
+  }
+  const amount = moneyFromCents(era.realized_pnl_cents);
+  if (era.pnl_quality === "estimated") {
+    return { text: `~${amount}`, quality: "estimated", rankEligible: false };
+  }
+  if (era.pnl_quality === "incomplete") {
+    return { text: `${amount} + unavailable`, quality: "incomplete", rankEligible: false };
+  }
+  return { text: amount, quality: "matched ledger pool", rankEligible: true };
 }
 
 function localTime(value) {
@@ -69,7 +136,8 @@ export function hideWelcome() {
 
 export function clearDashboard() {
   byId("dashboard").hidden = true;
-  for (const id of ["account", "positions", "runs", "run-detail", "eras"]) clear(byId(id));
+  for (const id of ["account", "positions", "runs", "run-detail", "eras", "pnl-reconciliation"]) clear(byId(id));
+  byId("pnl-reconciliation").hidden = true;
   byId("mode").textContent = "PHONE";
   byId("mode").className = "pill";
   byId("freshness").textContent = "waiting";
@@ -89,8 +157,19 @@ function renderAccount(payload) {
   appendCard(account, "Total value", money(snapshot.account.total_value));
   appendCard(account, "Cash", money(snapshot.account.cash));
   appendCard(account, "Buying power", money(snapshot.account.buying_power));
-  appendCard(account, "Realized today", money(snapshot.realized_pnl_today), pnlClass(snapshot.realized_pnl_today));
+  appendCard(
+    account,
+    "Broker realized today",
+    brokerRealizedTodayPresentation(payload),
+    pnlClass(snapshot.realized_pnl_today),
+  );
   appendCard(account, "Unrealized", money(unrealized), pnlClass(unrealized));
+
+  const comparison = byId("pnl-reconciliation");
+  const presentation = pnlReconciliationPresentation(payload.pnl_reconciliation);
+  comparison.className = presentation.className;
+  comparison.textContent = presentation.text;
+  comparison.hidden = false;
 }
 
 function renderPositions(positions) {
@@ -169,8 +248,12 @@ function renderEras(eras) {
     return;
   }
 
-  const ranked = eras.map((era, index) => ({ index, profit: era.realized_pnl }))
-    .filter((era) => era.profit > 0)
+  const ranked = eras.map((era, index) => ({
+    index,
+    profit: Number.isSafeInteger(era.realized_pnl_cents) ? era.realized_pnl_cents : 0,
+    presentation: eraPnlPresentation(era),
+  }))
+    .filter((era) => era.presentation.rankEligible && era.profit > 0)
     .sort((left, right) => right.profit - left.profit || left.index - right.index)
     .slice(0, 3);
   const stars = new Map(ranked.map((era, index) => [era.index, 3 - index]));
@@ -178,7 +261,7 @@ function renderEras(eras) {
   const wrapper = node("div", "scroll");
   const table = node("table");
   const header = node("tr");
-  for (const label of ["rules_version", "Dates", "Buys", "Sells", "STOPs", "Realized P&L"]) {
+  for (const label of ["rules_version", "Dates", "Buys", "Sells", "STOPs", "Strategy P&L (ledger fill basis)"]) {
     header.appendChild(node("th", "", label));
   }
   table.appendChild(header);
@@ -189,14 +272,18 @@ function renderEras(eras) {
     cell(row, String(era.buys));
     cell(row, String(era.sells));
     cell(row, String(era.stops));
-    const profitCell = cell(row, "", pnlClass(era.realized_pnl));
+    const presentation = eraPnlPresentation(era);
+    const classValue = Number.isSafeInteger(era.realized_pnl_cents)
+      ? era.realized_pnl_cents : era.realized_pnl;
+    const profitCell = cell(row, "", pnlClass(classValue));
     const starCount = stars.get(index) || 0;
     if (starCount > 0) {
       const mark = node("span", "stars", "★".repeat(starCount));
       mark.title = `${starCount === 3 ? "Largest" : starCount === 2 ? "Second-largest" : "Third-largest"} realized profit`;
       profitCell.appendChild(mark);
     }
-    profitCell.appendChild(document.createTextNode(money(era.realized_pnl)));
+    profitCell.appendChild(document.createTextNode(presentation.text));
+    profitCell.appendChild(node("span", "pnl-quality", presentation.quality));
     table.appendChild(row);
   });
   wrapper.appendChild(table);
@@ -226,6 +313,9 @@ export function renderDashboard(payload) {
   freshness.textContent = `snapshot ${age} min old (${payload.snapshot.session})`;
   freshness.className = `pill${age > 45 ? " warn" : ""}`;
   byId("sync").textContent = `received ${localTime(payload.captured_at)}`;
+  byId("eras-heading").textContent = payload.pnl_reconciliation
+    ? "Strategy P&L by rules era (ledger fill basis)"
+    : "Strategy P&L by rules era (legacy ledger)";
   renderAccount(payload);
   renderPositions(payload.snapshot.positions);
   renderRuns(payload.runs);
