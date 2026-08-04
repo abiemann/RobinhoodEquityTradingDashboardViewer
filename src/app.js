@@ -13,6 +13,7 @@ import {
 import {
   DriveAuthRequiredError,
   DriveFileMissingError,
+  DriveNetworkError,
   DriveProtocolError,
   DriveTransientError,
   GoogleDriveClient,
@@ -241,8 +242,10 @@ function askToConnect(message = "Pairing is ready. Connect the Google account us
 
 async function refreshSnapshot() {
   if (!pairing || !drive) return;
+  let stage = "Google Drive request";
   try {
     const { envelope, fileId } = await drive.fetchEnvelope(pairing.shareId, pairing.driveFileId);
+    stage = "snapshot verification";
     const parsed = validateEnvelope(envelope, pairing.shareId, Date.now(), APP_CONFIG.limits);
     if (Date.now() > parsed.expiresAtMs + APP_CONFIG.limits.clockSkewMs) {
       setSync("share expired", true);
@@ -254,8 +257,10 @@ async function refreshSnapshot() {
     }
     const accepted = await checkAcceptance(envelope, pairing.accepted);
     const payload = await decryptEnvelope(parsed, pairing.key);
+    stage = "pairing storage";
     await persistUpdates({ accepted, driveFileId: fileId });
 
+    stage = "dashboard display";
     renderDashboard(payload);
     dashboardVisible = true;
     setHeaderForget(true);
@@ -295,15 +300,38 @@ async function refreshSnapshot() {
       setSync("retrying", true);
       throw error;
     }
+    if (error instanceof DriveNetworkError) {
+      if (!navigator.onLine) {
+        showNotice("Offline. The last verified dashboard remains visible; updates resume when the app is online.", "offline");
+        setSync("offline", true);
+      } else {
+        const action = error.stage === "download"
+          ? "download the encrypted snapshot"
+          : "look up the encrypted snapshot";
+        const detail = error.reason === "timeout" ? "timed out" : "was blocked or interrupted";
+        showNotice(
+          "Google Drive could not " + action + "; the request " + detail +
+            ". Check this browser's content blocker, VPN, Private DNS, or network. RHMRA will retry automatically.",
+          "offline",
+        );
+        setSync(error.stage === "download" ? "Drive download failed" : "Drive lookup failed", true);
+      }
+      throw error;
+    }
     if (error instanceof ProtocolError || error instanceof DriveProtocolError || error instanceof DOMException) {
       poller?.stop();
       showNotice(`A security check rejected the remote snapshot (${error.code || error.name}).`, "error");
       setSync("snapshot rejected", true);
       return;
     }
-    if (!navigator.onLine || error instanceof TypeError) {
+    if (!navigator.onLine) {
       showNotice("Offline. The last verified dashboard remains visible; updates resume when the app is online.", "offline");
       setSync("offline", true);
+      return;
+    }
+    if (error instanceof TypeError) {
+      showNotice("The phone viewer could not finish " + stage + ". Reload the page and try again.", "error");
+      setSync("viewer error", true);
       return;
     }
     showNotice("The encrypted dashboard could not be refreshed. RHMRA will try again shortly.", "error");

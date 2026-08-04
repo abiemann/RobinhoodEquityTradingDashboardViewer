@@ -108,3 +108,12 @@ test("expired snapshots cannot advance acceptance state and missing files retain
   assert.doesNotMatch(missingBranch, /clearPairings|pairing = null|poller\?\.stop/);
   assert.match(missingBranch, /driveFileId: null/);
 });
+
+test("online Drive network failures are not mislabeled as device offline", async () => {
+  const app = await source("src/app.js");
+  assert.match(app, /error instanceof DriveNetworkError/);
+  assert.match(app, /Drive lookup failed/);
+  assert.match(app, /Drive download failed/);
+  assert.doesNotMatch(app, /!navigator\.onLine \|\| error instanceof TypeError/);
+  assert.match(app, /phone viewer could not finish/);
+});

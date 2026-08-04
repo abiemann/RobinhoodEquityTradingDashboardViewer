@@ -24,6 +24,16 @@ export class DriveProtocolError extends Error {
   }
 }
 
+export class DriveNetworkError extends Error {
+  constructor(stage, reason = "failed") {
+    super("Google Drive request failed.");
+    this.name = "DriveNetworkError";
+    this.stage = stage === "download" ? "download" : "lookup";
+    this.reason = reason === "timeout" ? "timeout" : "failed";
+    this.transient = true;
+  }
+}
+
 export class DriveTransientError extends Error {
   constructor(status, retryAfterMs = null) {
     super(`Google Drive is temporarily unavailable (${status}).`);
@@ -109,14 +119,25 @@ function waitForGoogleIdentity(timeoutMs = 10_000) {
 }
 
 export class GoogleDriveClient {
-  constructor({ clientId, scope, maxBodyBytes = 393_216, fetchImpl = globalThis.fetch }) {
+  constructor({
+    clientId,
+    scope,
+    maxBodyBytes = 393_216,
+    fetchImpl = globalThis.fetch,
+    requestTimeoutMs = 15_000,
+  }) {
     if (typeof clientId !== "string" || !clientId.endsWith(".apps.googleusercontent.com")) {
       throw new Error("The Google web OAuth client ID is not configured.");
     }
     this.clientId = clientId;
     this.scope = scope;
     this.maxBodyBytes = maxBodyBytes;
+    if (typeof fetchImpl !== "function") throw new Error("Browser networking is unavailable.");
+    if (!Number.isFinite(requestTimeoutMs) || requestTimeoutMs < 1_000 || requestTimeoutMs > 60_000) {
+      throw new Error("The Google Drive request timeout is invalid.");
+    }
     this.fetchImpl = fetchImpl;
+    this.requestTimeoutMs = requestTimeoutMs;
     this.accessToken = null;
     this.tokenExpiresAt = 0;
   }
@@ -169,23 +190,29 @@ export class GoogleDriveClient {
     this.tokenExpiresAt = 0;
   }
 
-  async request(url) {
+  async request(url, stage = url.includes("alt=media") ? "download" : "lookup") {
     if (!this.connected) {
       this.accessToken = null;
       throw new DriveAuthRequiredError();
     }
     let response;
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timeout = controller ? setTimeout(() => controller.abort(), this.requestTimeoutMs) : null;
     try {
-      response = await this.fetchImpl(url, {
+      // A few Android WebViews brand-check native methods. Give fetch its
+      // global receiver even though tests may inject an ordinary function.
+      response = await this.fetchImpl.call(globalThis, url, {
         method: "GET",
         headers: { Authorization: `Bearer ${this.accessToken}`, Accept: "application/json" },
         cache: "no-store",
         credentials: "omit",
         redirect: "error",
+        ...(controller ? { signal: controller.signal } : {}),
       });
     } catch (error) {
-      if (error instanceof TypeError) throw error;
-      throw new Error("Google Drive could not be reached.", { cause: error });
+      throw new DriveNetworkError(stage, error?.name === "AbortError" ? "timeout" : "failed");
+    } finally {
+      if (timeout !== null) clearTimeout(timeout);
     }
     if (response.status === 401) {
       this.accessToken = null;
@@ -208,7 +235,13 @@ export class GoogleDriveClient {
 
   async findFileId(shareId) {
     const response = await this.request(buildFileListUrl(shareId));
-    const listing = await response.json();
+    let listing;
+    try {
+      listing = await response.json();
+    } catch (error) {
+      if (error instanceof TypeError) throw new DriveNetworkError("lookup");
+      throw new DriveProtocolError("Google Drive returned an invalid file list.");
+    }
     if (!listing || !Array.isArray(listing.files)) throw new DriveProtocolError("Google Drive returned an invalid file list.");
     if (listing.nextPageToken || listing.files.length > 1) {
       throw new DriveProtocolError("Multiple encrypted files have the same share name; refresh was blocked.");
@@ -236,7 +269,13 @@ export class GoogleDriveClient {
     if (Number.isFinite(contentLength) && contentLength > this.maxBodyBytes) {
       throw new DriveProtocolError("The encrypted dashboard file is too large.");
     }
-    const text = await response.text();
+    let text;
+    try {
+      text = await response.text();
+    } catch (error) {
+      if (error instanceof TypeError) throw new DriveNetworkError("download");
+      throw new DriveProtocolError("Google Drive returned an unreadable encrypted snapshot.");
+    }
     if (new TextEncoder().encode(text).byteLength > this.maxBodyBytes) {
       throw new DriveProtocolError("The encrypted dashboard file is too large.");
     }

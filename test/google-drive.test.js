@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   DriveAuthRequiredError,
+  DriveNetworkError,
   DriveProtocolError,
   DriveTransientError,
   GoogleDriveClient,
@@ -144,4 +145,55 @@ test("Drive 429 and 5xx responses are classified as transient", async () => {
         && error.transient === true,
     );
   }
+});
+
+test("network failures identify lookup versus download and remain retryable", async () => {
+  const receivers = [];
+  const client = new GoogleDriveClient({
+    clientId: "example.apps.googleusercontent.com",
+    scope: "https://www.googleapis.com/auth/drive.appdata",
+    fetchImpl: function () {
+      receivers.push(this);
+      throw new TypeError("Failed to fetch");
+    },
+  });
+  client.accessToken = "memory-only-token";
+  client.tokenExpiresAt = Date.now() + 60_000;
+
+  await assert.rejects(
+    () => client.request("https://www.googleapis.com/drive/v3/files"),
+    (error) => error instanceof DriveNetworkError
+      && error.stage === "lookup"
+      && error.reason === "failed"
+      && error.transient === true,
+  );
+  await assert.rejects(
+    () => client.request("https://www.googleapis.com/drive/v3/files/file-id?alt=media"),
+    (error) => error instanceof DriveNetworkError && error.stage === "download",
+  );
+  assert.deepEqual(receivers, [globalThis, globalThis]);
+});
+
+test("Drive requests time out as retryable network failures", async () => {
+  const client = new GoogleDriveClient({
+    clientId: "example.apps.googleusercontent.com",
+    scope: "https://www.googleapis.com/auth/drive.appdata",
+    requestTimeoutMs: 1_000,
+    fetchImpl: (_url, { signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener(
+        "abort",
+        () => reject(new DOMException("Aborted", "AbortError")),
+        { once: true },
+      );
+    }),
+  });
+  client.accessToken = "memory-only-token";
+  client.tokenExpiresAt = Date.now() + 60_000;
+
+  await assert.rejects(
+    () => client.request("https://www.googleapis.com/drive/v3/files"),
+    (error) => error instanceof DriveNetworkError
+      && error.reason === "timeout"
+      && error.transient === true,
+  );
 });
