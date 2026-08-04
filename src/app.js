@@ -436,6 +436,7 @@ async function refreshSnapshot() {
 
     // Keep the previous deadline armed until the newer replay boundary and
     // encrypted cache are durable. Then replace it before exposing new data.
+    stage = "snapshot expiry scheduling";
     scheduleSnapshotExpiry(parsed.expiresAtMs);
     stage = "dashboard display";
     try {

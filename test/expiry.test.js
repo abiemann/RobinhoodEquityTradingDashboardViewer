@@ -216,3 +216,33 @@ test("invalid deadlines and clock values fail explicitly", async () => {
   await assert.rejects(() => expiry.schedule(1), /now\(\) must return a finite/);
   expiry.cancel();
 });
+
+test("default expiry timers preserve the browser global receiver", async () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  let scheduled = null;
+  let cleared = null;
+  try {
+    globalThis.setTimeout = function setTimeoutWithStrictReceiver(callback, delay) {
+      assert.equal(this, globalThis);
+      scheduled = { callback, delay };
+      return 73;
+    };
+    globalThis.clearTimeout = function clearTimeoutWithStrictReceiver(id) {
+      assert.equal(this, globalThis);
+      cleared = id;
+    };
+
+    const expiry = new ExpiryController({
+      now: () => 100,
+      onExpire: async () => {},
+    });
+    assert.equal(await expiry.schedule(200), false);
+    assert.equal(scheduled.delay, 100);
+    expiry.invalidate();
+    assert.equal(cleared, 73);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});

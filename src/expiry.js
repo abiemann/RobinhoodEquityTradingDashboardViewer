@@ -22,8 +22,8 @@ function requireFunction(value, name) {
 export class ExpiryController {
   constructor({
     now = () => Date.now(),
-    setTimer = globalThis.setTimeout,
-    clearTimer = globalThis.clearTimeout,
+    setTimer = (callback, delay) => globalThis.setTimeout(callback, delay),
+    clearTimer = (id) => globalThis.clearTimeout(id),
     onExpire,
   } = {}) {
     this.now = requireFunction(now, "now");

@@ -165,3 +165,35 @@ test("returning to the foreground resets transient backoff before an immediate r
   assert.deepEqual(timers.delays, [30_000, 60_000, 30_000]);
   poller.stop();
 });
+
+test("default poller timers preserve the browser global receiver", async () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  let scheduled = null;
+  let cleared = null;
+  try {
+    globalThis.setTimeout = function setTimeoutWithStrictReceiver(callback, delay) {
+      assert.equal(this, globalThis);
+      scheduled = { callback, delay };
+      return 91;
+    };
+    globalThis.clearTimeout = function clearTimeoutWithStrictReceiver(id) {
+      assert.equal(this, globalThis);
+      cleared = id;
+    };
+
+    const poller = new ForegroundPoller({
+      poll: async () => {},
+      intervalMs: 30_000,
+      visibility: { hidden: false, addEventListener() {}, removeEventListener() {} },
+    });
+    poller.active = true;
+    await poller.runNow();
+    assert.equal(scheduled.delay, 30_000);
+    poller.stop();
+    assert.equal(cleared, 91);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
+});

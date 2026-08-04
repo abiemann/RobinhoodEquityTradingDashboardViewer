@@ -6,8 +6,8 @@ export class ForegroundPoller {
     jitterRatio = 0.2,
     random = Math.random,
     visibility = globalThis.document,
-    setTimer = globalThis.setTimeout,
-    clearTimer = globalThis.clearTimeout,
+    setTimer = (callback, delay) => globalThis.setTimeout(callback, delay),
+    clearTimer = (id) => globalThis.clearTimeout(id),
   }) {
     this.poll = poll;
     this.intervalMs = intervalMs;
