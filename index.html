@@ -62,9 +62,12 @@
     <section>
       <h2>Runs today — tap a run for details</h2>
       <div id="runs" class="runs"></div>
-      <div id="run-detail" class="run-detail" aria-live="polite"></div>
+      <button id="run-detail" class="run-detail" type="button" aria-hidden="true" tabindex="-1" title="Tap to hide run details">
+        <span id="run-detail-text" class="run-detail-text"></span>
+      </button>
+      <span id="run-detail-status" class="visually-hidden" role="status" aria-live="polite"></span>
     </section>
-    <section><h2 id="eras-heading">Strategy P&amp;L by rules era</h2><div id="eras"></div></section>
+    <section><h2 id="eras-heading">Strategy P&amp;L</h2><div id="eras"></div></section>
   </main>
 
   <footer>

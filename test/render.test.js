@@ -5,13 +5,19 @@ import { test } from "node:test";
 import {
   applyPnlReconciliationPresentation,
   brokerRealizedTodayPresentation,
+  closeRunDetailSelection,
   ERA_TABLE_HEADERS,
+  eraHeading,
   eraPnlPresentation,
   eraTableValues,
   hideNotice,
   pnlReconciliationPresentation,
+  reconcileRunDetailSelection,
+  runDetailContext,
+  runDetailEntries,
   setHeaderStatusPillsVisible,
   showNotice,
+  toggleRunDetailSelection,
 } from "../src/render.js";
 
 test("enhanced broker card renders validated integer cents instead of floating-point rounding", () => {
@@ -80,6 +86,16 @@ test("phone header omits the internal rules-version badge", async () => {
   assert.doesNotMatch(renderer, /byId\(["']rules["']\)/);
 });
 
+test("phone P&L heading omits rules-era wording", async () => {
+  const [markup, renderer] = await Promise.all([
+    readFile(new URL("../index.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/render.js", import.meta.url), "utf8"),
+  ]);
+  assert.equal(eraHeading(true), "Strategy P&L (ledger fill basis)");
+  assert.equal(eraHeading(false), "Strategy P&L (legacy ledger)");
+  assert.doesNotMatch(`${markup}\n${renderer}`, /by rules era/i);
+});
+
 test("header status pills hide stale prior state and reveal together", () => {
   const previousDocument = globalThis.document;
   const pills = new Map(["mode", "freshness", "sync"].map((id) => [id, { hidden: false }]));
@@ -124,6 +140,59 @@ test("only an explicit disconnected notice shows the preserved reconnect action"
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;
   }
+});
+
+test("run detail toggles, survives matching refreshes, and resets for a new context", () => {
+  const runs = [
+    { time: "10:02", label: "scanned", phase: "entry", tooltip: "first detail" },
+    { time: "10:02", label: "halted", phase: "halted", tooltip: "same-time duplicate" },
+  ];
+  const entries = runDetailEntries(runs);
+  assert.notEqual(entries[0].key, entries[1].key);
+
+  const context = JSON.stringify(["2026-08-04", "live"]);
+  let selection = toggleRunDetailSelection(null, entries[0], context);
+  assert.deepEqual(selection, {
+    contextKey: context,
+    runKey: entries[0].key,
+    text: "10:02 \u2014 first detail",
+    open: true,
+  });
+
+  const refreshed = runDetailEntries([
+    { time: "10:02", label: "scanned", phase: "entry", tooltip: "refreshed detail" },
+    { time: "10:02", label: "halted", phase: "halted", tooltip: "same-time duplicate" },
+    { time: "10:33", label: "sold", phase: "exit", tooltip: "new run" },
+  ]);
+  selection = reconcileRunDetailSelection(selection, refreshed, context);
+  assert.equal(selection.open, true);
+  assert.equal(selection.text, "10:02 \u2014 refreshed detail");
+
+  selection = toggleRunDetailSelection(selection, refreshed[0], context);
+  assert.equal(selection.open, false);
+  selection = toggleRunDetailSelection(selection, refreshed[0], context);
+  assert.equal(selection.open, true);
+  assert.equal(closeRunDetailSelection(selection).open, false);
+
+  assert.equal(reconcileRunDetailSelection(selection, refreshed, "new-day"), null);
+  const selectedRunRemoved = runDetailEntries([
+    { time: "10:02", label: "halted", phase: "halted", tooltip: "same-time duplicate" },
+    { time: "10:33", label: "sold", phase: "exit", tooltip: "new run" },
+  ]);
+  assert.equal(reconcileRunDetailSelection(selection, selectedRunRemoved, context), null);
+});
+
+test("run-detail context follows trading date and live/dry mode", () => {
+  const payload = {
+    pnl_reconciliation: { date_et: "2026-08-04" },
+    snapshot: { run_start_pt: "2026-08-03T10:00:00-07:00" },
+    mode: { dry_run: false },
+  };
+  assert.equal(runDetailContext(payload), JSON.stringify(["2026-08-04", "live"]));
+  assert.equal(
+    runDetailContext({ ...payload, pnl_reconciliation: null, mode: { dry_run: true } }),
+    JSON.stringify(["2026-08-03", "dry"]),
+  );
 });
 
 test("matched era rows omit a redundant quality badge", async () => {

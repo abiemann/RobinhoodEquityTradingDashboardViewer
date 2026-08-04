@@ -1,4 +1,4 @@
-const CACHE_NAME = "rhmra-phone-shell-v9";
+const CACHE_NAME = "rhmra-phone-shell-v10";
 const SHELL_FILES = [
   "./", "./index.html", "./privacy.html", "./styles.css", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png",

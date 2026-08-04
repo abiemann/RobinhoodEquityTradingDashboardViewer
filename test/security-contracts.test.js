@@ -91,6 +91,34 @@ test("Forget stays in the title row while reconnect is centered inside the notic
   );
 });
 
+test("phone header stays pinned while dashboard content keeps native scrolling", async () => {
+  const [html, styles, render] = await Promise.all([
+    source("index.html"), source("styles.css"), source("src/render.js"),
+  ]);
+  assert.match(
+    styles,
+    /header\s*\{[^}]*position:sticky;[^}]*top:env\(safe-area-inset-top,0px\);[^}]*z-index:10;[^}]*padding-bottom:14px;[^}]*background:var\(--bg\);/s,
+  );
+  assert.match(
+    styles,
+    /header::before\s*\{[^}]*bottom:100%;[^}]*height:env\(safe-area-inset-top,0px\);[^}]*background:var\(--bg\);/s,
+  );
+  assert.doesNotMatch(styles, /header\s*\{[^}]*position:fixed;/s);
+  assert.doesNotMatch(styles, /(?:body|main)\s*\{[^}]*overflow-y:(?:auto|scroll);/s);
+  assert.match(
+    html,
+    /<button id="run-detail" class="run-detail" type="button" aria-hidden="true" tabindex="-1"[^>]*>\s*<span id="run-detail-text" class="run-detail-text"><\/span>\s*<\/button>\s*<span id="run-detail-status" class="visually-hidden" role="status" aria-live="polite"><\/span>/s,
+  );
+  assert.doesNotMatch(html, /<button id="run-detail"[^>]*>[\s\S]*?role="status"[\s\S]*?<\/button>/);
+  assert.match(styles, /button\.run-detail\s*\{[^}]*grid-template-rows:0fr;[^}]*900ms/s);
+  assert.match(styles, /button\.run-detail\.open\s*\{[^}]*grid-template-rows:1fr;/s);
+  assert.match(render, /reconcileRunDetailSelection\(viewState\.runSelection, entries, contextKey\)/);
+  assert.match(render, /syncRunDetail\(\{ scroll: true \}\)/);
+  assert.doesNotMatch(render, /detail\.textContent\s*=\s*""/);
+  assert.doesNotMatch(html, /by rules era/i);
+  assert.doesNotMatch(render, /by rules era/i);
+});
+
 test("mobile reload defenses keep native scrolling and ship the recovery module", async () => {
   const [html, styles, worker] = await Promise.all([
     source("index.html"), source("styles.css"), source("sw.js"),
@@ -103,7 +131,7 @@ test("mobile reload defenses keep native scrolling and ship the recovery module"
   assert.match(styles, /html\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.doesNotMatch(styles, /touch-action\s*:/);
-  assert.match(worker, /rhmra-phone-shell-v9/);
+  assert.match(worker, /rhmra-phone-shell-v10/);
   assert.match(worker, /"\.\/src\/cache\.js"/);
   assert.match(worker, /"\.\/src\/expiry\.js"/);
 });

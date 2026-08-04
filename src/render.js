@@ -1,9 +1,61 @@
-const viewState = { eraSignature: null, erasExpanded: false };
+const viewState = {
+  eraSignature: null,
+  erasExpanded: false,
+  runSelection: null,
+  runButtons: [],
+  runScrollEpoch: 0,
+  runDetailWired: false,
+};
 const HEADER_STATUS_PILL_IDS = Object.freeze(["mode", "freshness", "sync"]);
 
 export const ERA_TABLE_HEADERS = Object.freeze([
   "Dates", "Buys", "Sells", "STOPs", "Strategy P&L (ledger fill basis)",
 ]);
+
+export function eraHeading(hasReconciliation) {
+  return hasReconciliation ? "Strategy P&L (ledger fill basis)" : "Strategy P&L (legacy ledger)";
+}
+
+export function runDetailEntries(runs) {
+  const occurrences = new Map();
+  return runs.map((run) => {
+    const identity = JSON.stringify([run.time, run.label, run.phase]);
+    const occurrence = occurrences.get(identity) || 0;
+    occurrences.set(identity, occurrence + 1);
+    return { key: JSON.stringify([run.time, run.label, run.phase, occurrence]), run };
+  });
+}
+
+export function runDetailText(run) {
+  return `${run.time} \u2014 ${run.tooltip}`;
+}
+
+export function toggleRunDetailSelection(selection, entry, contextKey) {
+  if (selection?.open && selection.contextKey === contextKey && selection.runKey === entry.key) {
+    return { ...selection, open: false };
+  }
+  return {
+    contextKey,
+    runKey: entry.key,
+    text: runDetailText(entry.run),
+    open: true,
+  };
+}
+
+export function closeRunDetailSelection(selection) {
+  return selection ? { ...selection, open: false } : null;
+}
+
+export function reconcileRunDetailSelection(selection, entries, contextKey) {
+  if (!selection || selection.contextKey !== contextKey) return null;
+  const selected = entries.find((entry) => entry.key === selection.runKey);
+  return selected ? { ...selection, text: runDetailText(selected.run) } : null;
+}
+
+export function runDetailContext(payload) {
+  const tradingDate = payload.pnl_reconciliation?.date_et || String(payload.snapshot.run_start_pt).slice(0, 10);
+  return JSON.stringify([tradingDate, payload.mode.dry_run ? "dry" : "live"]);
+}
 
 export function eraTableValues(era) {
   return [
@@ -166,7 +218,8 @@ export function setHeaderStatusPillsVisible(visible) {
 
 export function clearDashboard() {
   byId("dashboard").hidden = true;
-  for (const id of ["account", "positions", "runs", "run-detail", "eras", "pnl-reconciliation"]) clear(byId(id));
+  for (const id of ["account", "positions", "runs", "eras", "pnl-reconciliation"]) clear(byId(id));
+  resetRunDetail();
   byId("pnl-reconciliation").hidden = true;
   byId("mode").textContent = "PHONE";
   byId("mode").className = "pill";
@@ -245,23 +298,95 @@ function renderPositions(positions) {
   root.appendChild(wrapper);
 }
 
-function renderRuns(runs) {
-  const root = byId("runs");
+function selectedRunButton() {
+  const selection = viewState.runSelection;
+  return viewState.runButtons.find((entry) => entry.key === selection?.runKey)?.button || null;
+}
+
+function scheduleRunScroll(target) {
+  const epoch = ++viewState.runScrollEpoch;
+  if (!target?.scrollIntoView) return;
+  const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+  const scroll = () => {
+    if (epoch !== viewState.runScrollEpoch) return;
+    target.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "nearest" });
+  };
+  if (reducedMotion || typeof globalThis.requestAnimationFrame !== "function") scroll();
+  else globalThis.requestAnimationFrame(scroll);
+}
+
+function syncRunDetail({ scroll = false, focusRun = false } = {}) {
   const detail = byId("run-detail");
+  const text = byId("run-detail-text");
+  const status = byId("run-detail-status");
+  const selection = viewState.runSelection;
+  const open = Boolean(selection?.open);
+  const nextText = selection?.text || "";
+  if (text.textContent !== nextText) text.textContent = nextText;
+  detail.className = `run-detail${open ? " open" : ""}`;
+  detail.setAttribute("aria-hidden", String(!open));
+  detail.tabIndex = open ? 0 : -1;
+  for (const entry of viewState.runButtons) {
+    entry.button.setAttribute("aria-expanded", String(open && entry.key === selection?.runKey));
+  }
+  const runButton = selectedRunButton();
+  if (focusRun) runButton?.focus({ preventScroll: true });
+  const announcement = open ? nextText : "";
+  if (status.textContent !== announcement) status.textContent = announcement;
+  if (scroll) scheduleRunScroll(open ? detail : runButton);
+}
+
+function wireRunDetail() {
+  if (viewState.runDetailWired) return;
+  byId("run-detail").addEventListener("click", () => {
+    if (!viewState.runSelection?.open) return;
+    viewState.runSelection = closeRunDetailSelection(viewState.runSelection);
+    syncRunDetail({ scroll: true, focusRun: true });
+  });
+  viewState.runDetailWired = true;
+}
+
+function resetRunDetail() {
+  viewState.runSelection = null;
+  viewState.runButtons = [];
+  viewState.runScrollEpoch += 1;
+  syncRunDetail();
+}
+
+function renderRuns(runs, contextKey) {
+  const root = byId("runs");
+  const focusedKey = root.contains(document.activeElement) ? document.activeElement?.dataset?.runKey : null;
+  viewState.runScrollEpoch += 1;
   clear(root);
-  detail.textContent = "";
+  wireRunDetail();
+  const entries = runDetailEntries(runs);
+  viewState.runSelection = reconcileRunDetailSelection(viewState.runSelection, entries, contextKey);
+  viewState.runButtons = [];
   if (runs.length === 0) {
     root.appendChild(node("span", "empty", "no runs in this snapshot"));
+    syncRunDetail();
     return;
   }
-  for (const run of runs) {
+  for (const entry of entries) {
+    const { run } = entry;
     const button = node("button", `run${run.phase === "halted" ? " halted" : ""}`);
     button.type = "button";
     button.title = run.tooltip;
+    button.dataset.runKey = entry.key;
+    button.setAttribute("aria-controls", "run-detail");
+    button.setAttribute("aria-expanded", "false");
     button.appendChild(node("span", "time", run.time));
     button.appendChild(node("span", "label", run.label));
-    button.addEventListener("click", () => { detail.textContent = `${run.time} — ${run.tooltip}`; });
+    button.addEventListener("click", () => {
+      viewState.runSelection = toggleRunDetailSelection(viewState.runSelection, entry, contextKey);
+      syncRunDetail({ scroll: true });
+    });
     root.appendChild(button);
+    viewState.runButtons.push({ key: entry.key, button });
+  }
+  syncRunDetail();
+  if (focusedKey) {
+    viewState.runButtons.find((entry) => entry.key === focusedKey)?.button.focus({ preventScroll: true });
   }
 }
 
@@ -338,12 +463,10 @@ export function renderDashboard(payload) {
   freshness.textContent = `snapshot ${age} min old (${payload.snapshot.session})`;
   freshness.className = `pill${age > 45 ? " warn" : ""}`;
   byId("sync").textContent = `received ${localTime(payload.captured_at)}`;
-  byId("eras-heading").textContent = payload.pnl_reconciliation
-    ? "Strategy P&L by rules era (ledger fill basis)"
-    : "Strategy P&L by rules era (legacy ledger)";
+  byId("eras-heading").textContent = eraHeading(Boolean(payload.pnl_reconciliation));
   renderAccount(payload);
   renderPositions(payload.snapshot.positions);
-  renderRuns(payload.runs);
+  renderRuns(payload.runs, runDetailContext(payload));
   renderEras(payload.eras);
 }
 
