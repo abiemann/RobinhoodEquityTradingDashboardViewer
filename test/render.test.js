@@ -8,8 +8,10 @@ import {
   ERA_TABLE_HEADERS,
   eraPnlPresentation,
   eraTableValues,
+  hideNotice,
   pnlReconciliationPresentation,
   setHeaderStatusPillsVisible,
+  showNotice,
 } from "../src/render.js";
 
 test("enhanced broker card renders validated integer cents instead of floating-point rounding", () => {
@@ -87,6 +89,37 @@ test("header status pills hide stale prior state and reveal together", () => {
     assert.deepEqual([...pills.values()].map((pill) => pill.hidden), [true, true, true]);
     setHeaderStatusPillsVisible(true);
     assert.deepEqual([...pills.values()].map((pill) => pill.hidden), [false, false, false]);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});
+
+test("only an explicit disconnected notice shows the preserved reconnect action", () => {
+  const previousDocument = globalThis.document;
+  const notice = { className: "notice", hidden: true };
+  const message = { textContent: "" };
+  const connect = { hidden: true };
+  const elements = new Map([
+    ["notice", notice], ["notice-message", message], ["connect-header", connect],
+  ]);
+  globalThis.document = { getElementById: (id) => elements.get(id) || null };
+  try {
+    showNotice("Google Drive is disconnected.", "offline", { connect: true });
+    assert.equal(message.textContent, "Google Drive is disconnected.");
+    assert.deepEqual(notice, { className: "notice offline", hidden: false });
+    assert.equal(connect.hidden, false);
+    assert.equal(Object.hasOwn(notice, "textContent"), false);
+
+    showNotice("A security check rejected the snapshot.", "error");
+    assert.equal(message.textContent, "A security check rejected the snapshot.");
+    assert.deepEqual(notice, { className: "notice error", hidden: false });
+    assert.equal(connect.hidden, true);
+
+    showNotice("Google Drive is disconnected.", "offline", { connect: true });
+    hideNotice();
+    assert.equal(notice.hidden, true);
+    assert.equal(connect.hidden, true);
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;

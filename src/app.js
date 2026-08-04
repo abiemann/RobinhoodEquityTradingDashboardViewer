@@ -331,8 +331,7 @@ function askToConnect(message = "Pairing is ready. Connect the Google account us
   if (headerConnect) headerConnect.textContent = "Connect Google Drive";
   if (dashboardVisible) {
     element("welcome").hidden = true;
-    setHeaderConnect(true);
-    showNotice(`${message} The last verified dashboard remains visible.`, "offline");
+    showNotice(`${message} The last verified dashboard remains visible.`, "offline", { connect: true });
   } else {
     setHeaderConnect(false);
     setWelcome(message, { connect: true, forget: true });
@@ -662,7 +661,9 @@ async function registerServiceWorker() {
 async function bootstrap() {
   wireUi();
   void registerServiceWorker().catch(() => {
-    showNotice("Offline installation is unavailable in this browser, but the viewer can still be used online.", "offline");
+    if (element("notice").hidden) {
+      showNotice("Offline installation is unavailable in this browser, but the viewer can still be used online.", "offline");
+    }
   });
 
   if (requiresIosHomeScreen()) {

@@ -23,9 +23,6 @@
     <span id="mode" class="pill" hidden>PHONE</span>
     <span id="freshness" class="pill" hidden>waiting</span>
     <span id="sync" class="pill" hidden></span>
-    <div class="header-actions">
-      <button id="connect-header" class="small-action connect-action" type="button" hidden>Connect Google Drive</button>
-    </div>
   </header>
 
   <section id="ios-install-gate" class="install-gate" role="alert" hidden>
@@ -38,7 +35,10 @@
     </ol>
   </section>
 
-  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  <div id="notice" class="notice" hidden>
+    <p id="notice-message" class="notice-message" role="status" aria-live="polite"></p>
+    <button id="connect-header" class="small-action connect-action notice-connect" type="button" hidden>Connect Google Drive</button>
+  </div>
 
   <section id="welcome" class="welcome" hidden>
     <h2>Private phone viewer</h2>

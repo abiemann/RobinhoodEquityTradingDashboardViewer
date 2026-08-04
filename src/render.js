@@ -134,15 +134,19 @@ function cell(row, text, className = "") {
   return result;
 }
 
-export function showNotice(message, kind = "info") {
+export function showNotice(message, kind = "info", { connect = false } = {}) {
   const notice = byId("notice");
-  notice.textContent = message;
+  byId("notice-message").textContent = message;
+  const connectButton = byId("connect-header");
+  if (connectButton) connectButton.hidden = !connect;
   notice.className = `notice${kind === "error" ? " error" : kind === "offline" ? " offline" : ""}`;
   notice.hidden = false;
 }
 
 export function hideNotice() {
   byId("notice").hidden = true;
+  const connectButton = byId("connect-header");
+  if (connectButton) connectButton.hidden = true;
 }
 
 export function setWelcome(message, { connect = false, forget = false } = {}) {
