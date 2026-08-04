@@ -1,5 +1,18 @@
 const viewState = { eraSignature: null, erasExpanded: false };
 
+export const ERA_TABLE_HEADERS = Object.freeze([
+  "Dates", "Buys", "Sells", "STOPs", "Strategy P&L (ledger fill basis)",
+]);
+
+export function eraTableValues(era) {
+  return [
+    era.first === era.last ? era.first : `${era.first} \u2192 ${era.last}`,
+    String(era.buys),
+    String(era.sells),
+    String(era.stops),
+  ];
+}
+
 function byId(id) {
   return document.getElementById(id);
 }
@@ -60,16 +73,24 @@ export function pnlReconciliationPresentation(reconciliation) {
     };
   }
   if (reconciliation.status === "agrees") {
-    return {
-      className: "pnl-reconciliation agrees",
-      text: `Broker and strategy agree to the cent · broker ${broker} · strategy ${strategy} · ${fills}`,
-    };
+    return null;
   }
   const difference = moneyFromCents(reconciliation.difference_cents, { signed: true });
   return {
     className: "pnl-reconciliation difference",
     text: `Broker vs strategy difference · broker ${broker} · strategy ${strategy} · difference ${difference} · ${fills}. Broker is authoritative.`,
   };
+}
+
+export function applyPnlReconciliationPresentation(element, presentation) {
+  element.className = "pnl-reconciliation";
+  element.textContent = "";
+  element.hidden = true;
+  if (presentation) {
+    element.className = presentation.className;
+    element.textContent = presentation.text;
+    element.hidden = false;
+  }
 }
 
 export function brokerRealizedTodayPresentation(payload) {
@@ -142,7 +163,6 @@ export function clearDashboard() {
   byId("mode").className = "pill";
   byId("freshness").textContent = "waiting";
   byId("freshness").className = "pill";
-  byId("rules").textContent = "";
   byId("sync").textContent = "";
 }
 
@@ -167,9 +187,7 @@ function renderAccount(payload) {
 
   const comparison = byId("pnl-reconciliation");
   const presentation = pnlReconciliationPresentation(payload.pnl_reconciliation);
-  comparison.className = presentation.className;
-  comparison.textContent = presentation.text;
-  comparison.hidden = false;
+  applyPnlReconciliationPresentation(comparison, presentation);
 }
 
 function renderPositions(positions) {
@@ -261,17 +279,13 @@ function renderEras(eras) {
   const wrapper = node("div", "scroll");
   const table = node("table");
   const header = node("tr");
-  for (const label of ["rules_version", "Dates", "Buys", "Sells", "STOPs", "Strategy P&L (ledger fill basis)"]) {
+  for (const label of ERA_TABLE_HEADERS) {
     header.appendChild(node("th", "", label));
   }
   table.appendChild(header);
   visible.forEach((era, index) => {
     const row = node("tr");
-    cell(row, era.rules_version);
-    cell(row, era.first === era.last ? era.first : `${era.first} → ${era.last}`);
-    cell(row, String(era.buys));
-    cell(row, String(era.sells));
-    cell(row, String(era.stops));
+    for (const value of eraTableValues(era)) cell(row, value);
     const presentation = eraPnlPresentation(era);
     const classValue = Number.isSafeInteger(era.realized_pnl_cents)
       ? era.realized_pnl_cents : era.realized_pnl;
@@ -307,7 +321,6 @@ export function renderDashboard(payload) {
   const mode = byId("mode");
   mode.textContent = payload.mode.dry_run ? "DRY" : "LIVE";
   mode.className = `pill ${payload.mode.dry_run ? "dry" : "live"}`;
-  byId("rules").textContent = `rules ${payload.snapshot.rules_version}`;
   const age = Math.max(0, Math.round((Date.now() - Date.parse(payload.snapshot.run_start_pt)) / 60_000));
   const freshness = byId("freshness");
   freshness.textContent = `snapshot ${age} min old (${payload.snapshot.session})`;

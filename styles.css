@@ -31,7 +31,6 @@ section { max-width:1100px; margin:0 auto 12px; padding:14px; overflow:hidden; b
 .card .key { color:var(--dim); font-size:11px; }
 .pnl-reconciliation { margin-top:12px; padding:7px 9px; color:var(--dim); background:#25282e;
   border:1px solid #4a4f58; border-radius:7px; font-size:12px; font-variant-numeric:tabular-nums; }
-.pnl-reconciliation.agrees { color:var(--green); background:#18271f; border-color:#285e46; }
 .pnl-reconciliation.difference,
 .pnl-reconciliation.qualified { color:var(--amber); background:#292516; border-color:#665522; }
 .pnl-reconciliation.legacy { color:var(--dim); }

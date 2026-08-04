@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
+  applyPnlReconciliationPresentation,
   brokerRealizedTodayPresentation,
+  ERA_TABLE_HEADERS,
   eraPnlPresentation,
+  eraTableValues,
   pnlReconciliationPresentation,
 } from "../src/render.js";
 
@@ -18,7 +22,7 @@ test("enhanced broker card renders validated integer cents instead of floating-p
   assert.equal(brokerRealizedTodayPresentation(legacy), "$2.67");
 });
 
-test("broker and strategy agreement is explicit and cent-based", () => {
+test("broker and strategy agreement does not add a success banner", () => {
   const presentation = pnlReconciliationPresentation({
     date_et: "2026-08-04",
     broker_realized_pnl_cents: 2129,
@@ -30,11 +34,47 @@ test("broker and strategy agreement is explicit and cent-based", () => {
     status: "agrees",
   });
 
-  assert.equal(presentation.className, "pnl-reconciliation agrees");
-  assert.equal(
-    presentation.text,
-    "Broker and strategy agree to the cent · broker $21.29 · strategy $21.29 · 2/2 strategy fills matched to the ledger pool",
-  );
+  assert.equal(presentation, null);
+});
+
+test("a hidden agreement clears any previously visible comparison", () => {
+  const element = {
+    className: "pnl-reconciliation difference",
+    textContent: "old warning",
+    hidden: false,
+  };
+
+  applyPnlReconciliationPresentation(element, null);
+
+  assert.deepEqual(element, {
+    className: "pnl-reconciliation",
+    textContent: "",
+    hidden: true,
+  });
+});
+
+test("phone era table omits internal rules-version data", () => {
+  assert.deepEqual(ERA_TABLE_HEADERS, [
+    "Dates", "Buys", "Sells", "STOPs", "Strategy P&L (ledger fill basis)",
+  ]);
+  assert.deepEqual(eraTableValues({
+    rules_version: "internal-version",
+    first: "2026-08-03",
+    last: "2026-08-04",
+    buys: 1,
+    sells: 2,
+    stops: 0,
+  }), ["2026-08-03 \u2192 2026-08-04", "1", "2", "0"]);
+});
+
+test("phone header omits the internal rules-version badge", async () => {
+  const [markup, renderer] = await Promise.all([
+    readFile(new URL("../index.html", import.meta.url), "utf8"),
+    readFile(new URL("../src/render.js", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(markup, /id=["']rules["']/);
+  assert.doesNotMatch(renderer, /byId\(["']rules["']\)/);
 });
 
 test("broker-versus-strategy differences remain explicit and authoritative", () => {
