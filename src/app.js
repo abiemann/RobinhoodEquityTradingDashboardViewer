@@ -20,6 +20,8 @@ import {
 } from "./google-drive.js";
 import { ForegroundPoller } from "./poller.js";
 import { requiresIosHomeScreen } from "./platform.js";
+import { cachedEnvelopeForPairing, restoreCachedDashboard } from "./cache.js";
+import { ExpiryController } from "./expiry.js";
 import {
   clearDashboard,
   hideNotice,
@@ -29,6 +31,7 @@ import {
   showNotice,
 } from "./render.js";
 import {
+  clearLastVerifiedEnvelope,
   clearPairings,
   clearSessionFallback,
   loadLatestPairing,
@@ -82,25 +85,40 @@ let poller = null;
 let deferredInstall = null;
 let dashboardVisible = false;
 
+const snapshotExpiry = new ExpiryController({ onExpire: expireSnapshot });
+
 const element = (id) => document.getElementById(id);
 
 function setHeaderForget(visible) {
   element("forget-header").hidden = !visible;
 }
 
+function setHeaderConnect(visible) {
+  const button = element("connect-header");
+  if (button) button.hidden = !visible;
+}
+
 function showIosInstallGate() {
+  snapshotExpiry.invalidate();
   poller?.stop();
   element("ios-install-gate").hidden = false;
   element("welcome").hidden = true;
   element("dashboard").hidden = true;
   element("paste-pairing").disabled = true;
   element("connect").disabled = true;
+  setHeaderConnect(false);
   setHeaderForget(false);
   setSync("install required", true);
 }
 
 function stopStaleTab(error) {
+  snapshotExpiry.invalidate();
   poller?.stop();
+  dashboardVisible = false;
+  clearDashboard();
+  setHeaderConnect(false);
+  setHeaderForget(false);
+  setWelcome("This pairing changed in another tab. Reload this app before continuing.");
   showNotice(
     `${error.message} Reload this app before accepting any more snapshots.`,
     "error",
@@ -112,6 +130,71 @@ function setSync(text, warning = false) {
   const sync = element("sync");
   sync.textContent = text;
   sync.className = `pill${warning ? " warn" : ""}`;
+}
+
+const ACCEPTANCE_FIELDS = Object.freeze([
+  "captured_at", "cipher_hash", "expires_at", "sequence", "share_id",
+]);
+
+function sameAcceptanceBoundary(left, right) {
+  const exact = (value) => value !== null && typeof value === "object" && !Array.isArray(value) &&
+    Object.keys(value).length === ACCEPTANCE_FIELDS.length &&
+    ACCEPTANCE_FIELDS.every((field) => Object.hasOwn(value, field));
+  return exact(left) && exact(right) &&
+    ACCEPTANCE_FIELDS.every((field) => left[field] === right[field]);
+}
+
+function scheduleSnapshotExpiry(expiresAtMs) {
+  void snapshotExpiry.schedule(expiresAtMs + APP_CONFIG.limits.clockSkewMs + 1);
+}
+
+function showExpiredDashboardState(cacheError = null) {
+  dashboardVisible = false;
+  clearDashboard();
+  setHeaderConnect(false);
+  setHeaderForget(Boolean(pairing));
+  const reconnect = !drive?.connected || !poller?.active;
+  setWelcome(
+    reconnect
+      ? "This snapshot has expired. Connect Google Drive to wait for a later laptop share."
+      : "This snapshot has expired. Keep the app open: a later laptop session can refresh the same pairing.",
+    { connect: reconnect, forget: Boolean(pairing) },
+  );
+  setSync("share expired", true);
+  showNotice(
+    cacheError
+      ? "The expired dashboard was hidden, but its encrypted reload copy could not be removed from browser storage. It will not be displayed again."
+      : "The expired dashboard was removed from this device.",
+    "error",
+  );
+}
+
+async function expireSnapshot({ isCurrent, commit }) {
+  const expectedPairing = pairing;
+  const expectedAccepted = expectedPairing?.accepted;
+  let cacheError = null;
+
+  if (expectedPairing?.storage === "persistent" && expectedAccepted) {
+    try {
+      const result = await clearLastVerifiedEnvelope(expectedPairing, expectedAccepted);
+      // Do not resurrect a pairing that was forgotten or replaced while the
+      // guarded clear awaited IndexedDB. A newer envelope for this generation
+      // may safely replace our in-memory copy without being cleared.
+      if (pairing?.shareId === result.pairing.shareId &&
+          pairing?.generation === result.pairing.generation) {
+        pairing = { ...result.pairing, storage: "persistent" };
+      }
+    } catch (error) {
+      cacheError = error;
+    }
+  }
+
+  if (!isCurrent()) return;
+  commit(() => {
+    // Expiration is fail-closed in memory even when browser storage could not
+    // be updated. The encrypted cache will be rejected on the next bootstrap.
+    showExpiredDashboardState(cacheError);
+  });
 }
 
 function pairingHashFromPrivateLink(value) {
@@ -194,11 +277,14 @@ async function restorePairing() {
   }
   const fallback = loadSessionFallback();
   if (!fallback || fallback.provider !== PROVIDER) return null;
-  const rawKey = decodeBase64Url(fallback.keyText, "key");
+  // Old or manually modified session data must never gain reload-cache
+  // semantics. Only IndexedDB-backed persistent pairings may restore one.
+  const { lastVerifiedEnvelope: _ignoredCache, ...safeFallback } = fallback;
+  const rawKey = decodeBase64Url(safeFallback.keyText, "key");
   try {
     if (rawKey.byteLength !== 32) throw new ProtocolError("invalid_key", "The session pairing key is invalid.");
     const key = await importDecryptionKey(rawKey);
-    return { ...fallback, key, storage: "session" };
+    return { ...safeFallback, key, storage: "session" };
   } finally {
     rawKey.fill(0);
   }
@@ -207,8 +293,10 @@ async function restorePairing() {
 async function persistUpdates(updates) {
   if (!pairing) return;
   if (pairing.storage === "session") {
-    updateSessionFallback(updates);
-    pairing = { ...pairing, ...updates };
+    const { lastVerifiedEnvelope: _ignoredCache, ...sessionUpdates } = updates;
+    updateSessionFallback(sessionUpdates);
+    const { lastVerifiedEnvelope: _oldCache, ...sessionPairing } = pairing;
+    pairing = { ...sessionPairing, ...sessionUpdates };
     return;
   }
   const updated = await updatePairing(pairing, updates);
@@ -234,10 +322,81 @@ function prepareDrive() {
 
 function askToConnect(message = "Pairing is ready. Connect the Google account used by the laptop uploader.") {
   poller?.stop();
-  setWelcome(message, { connect: true, forget: true });
+  drive?.disconnect();
   setHeaderForget(true);
   element("connect").textContent = "Connect Google Drive";
+  const headerConnect = element("connect-header");
+  if (headerConnect) headerConnect.textContent = "Connect Google Drive";
+  if (dashboardVisible) {
+    element("welcome").hidden = true;
+    setHeaderConnect(true);
+    showNotice(`${message} The last verified dashboard remains visible.`, "offline");
+  } else {
+    setHeaderConnect(false);
+    setWelcome(message, { connect: true, forget: true });
+  }
   setSync("disconnected", true);
+}
+
+async function discardCachedEnvelope(extraUpdates = {}) {
+  const expectedPairing = pairing;
+  if (!expectedPairing) return;
+  if (Object.hasOwn(extraUpdates, "lastVerifiedEnvelope")) {
+    throw new TypeError("Cache deletion must use the guarded acceptance-bound transaction.");
+  }
+
+  const hasExtraUpdates = Object.keys(extraUpdates).length > 0;
+  const expectedAccepted = expectedPairing.accepted;
+  if (expectedPairing.storage !== "persistent" || !expectedAccepted) {
+    if (hasExtraUpdates) await persistUpdates(extraUpdates);
+    return;
+  }
+
+  const result = await clearLastVerifiedEnvelope(expectedPairing, expectedAccepted);
+  // Do not resurrect a pairing that was forgotten or replaced while the
+  // conditional clear awaited IndexedDB.
+  if (pairing?.shareId !== result.pairing.shareId ||
+      pairing?.generation !== result.pairing.generation) return;
+  pairing = { ...result.pairing, storage: "persistent" };
+
+  // A newer same-generation snapshot won the race. Keep both its encrypted
+  // cache and its Drive metadata; the next poll will use that newer boundary.
+  if (hasExtraUpdates && sameAcceptanceBoundary(result.pairing.accepted, expectedAccepted)) {
+    await persistUpdates(extraUpdates);
+  }
+}
+
+async function restoreCachedView() {
+  if (!pairing || pairing.storage !== "persistent" || !pairing.lastVerifiedEnvelope) return false;
+  try {
+    const restored = await restoreCachedDashboard(pairing, {
+      now: Date.now(),
+      limits: APP_CONFIG.limits,
+    });
+    if (!restored) return false;
+    scheduleSnapshotExpiry(Date.parse(restored.envelope.expires_at));
+    renderDashboard(restored.payload);
+    dashboardVisible = true;
+    setHeaderForget(true);
+    setSync("last verified", true);
+    return true;
+  } catch (error) {
+    // Cached bytes are untrusted. Any validation, replay, authentication, or
+    // payload failure is fail-closed and removes only the cache, not pairing.
+    snapshotExpiry.invalidate();
+    dashboardVisible = false;
+    clearDashboard();
+    try {
+      await discardCachedEnvelope();
+    } catch (persistError) {
+      if (persistError instanceof PairingStateError) stopStaleTab(persistError);
+    }
+    showNotice(
+      `The saved dashboard could not be restored (${error.code || error.name || "cache rejected"}). Reconnect Google Drive to load a verified snapshot.`,
+      "error",
+    );
+    return false;
+  }
 }
 
 async function refreshSnapshot() {
@@ -248,21 +407,46 @@ async function refreshSnapshot() {
     stage = "snapshot verification";
     const parsed = validateEnvelope(envelope, pairing.shareId, Date.now(), APP_CONFIG.limits);
     if (Date.now() > parsed.expiresAtMs + APP_CONFIG.limits.clockSkewMs) {
-      setSync("share expired", true);
-      showNotice(
-        "This snapshot has expired. Keep the app open: a later laptop session can refresh the same pairing.",
-        "error",
-      );
+      snapshotExpiry.invalidate();
+      dashboardVisible = false;
+      clearDashboard();
+      setHeaderConnect(false);
+      let cacheError = null;
+      try {
+        await discardCachedEnvelope();
+      } catch (persistError) {
+        if (persistError instanceof PairingStateError) {
+          stopStaleTab(persistError);
+          return;
+        }
+        cacheError = persistError;
+      }
+      showExpiredDashboardState(cacheError);
       return;
     }
     const accepted = await checkAcceptance(envelope, pairing.accepted);
     const payload = await decryptEnvelope(parsed, pairing.key);
     stage = "pairing storage";
-    await persistUpdates({ accepted, driveFileId: fileId });
+    const lastVerifiedEnvelope = cachedEnvelopeForPairing(pairing, envelope);
+    const updates = { accepted, driveFileId: fileId };
+    if (lastVerifiedEnvelope) updates.lastVerifiedEnvelope = lastVerifiedEnvelope;
+    // The acceptance boundary, Drive file ID, and encrypted restore cache are
+    // committed by storage in one pairing transaction before any rendering.
+    await persistUpdates(updates);
 
+    // Keep the previous deadline armed until the newer replay boundary and
+    // encrypted cache are durable. Then replace it before exposing new data.
+    scheduleSnapshotExpiry(parsed.expiresAtMs);
     stage = "dashboard display";
-    renderDashboard(payload);
+    try {
+      renderDashboard(payload);
+    } catch (error) {
+      dashboardVisible = false;
+      clearDashboard();
+      throw error;
+    }
     dashboardVisible = true;
+    setHeaderConnect(false);
     setHeaderForget(true);
     markChecked();
   } catch (error) {
@@ -271,17 +455,20 @@ async function refreshSnapshot() {
       return;
     }
     if (error instanceof DriveFileMissingError) {
+      snapshotExpiry.invalidate();
       try {
-        await persistUpdates({ driveFileId: null });
+        // A confirmed missing app-data file means sharing stopped. Remove its
+        // restore cache and remembered file ID in the same pairing update.
+        await discardCachedEnvelope({ driveFileId: null });
       } catch (persistError) {
         if (persistError instanceof PairingStateError) {
           stopStaleTab(persistError);
           return;
         }
-        pairing = { ...pairing, driveFileId: null };
       }
       dashboardVisible = false;
       clearDashboard();
+      setHeaderConnect(false);
       setHeaderForget(true);
       setWelcome(
         "Phone sharing is currently stopped. This pairing will resume automatically when the laptop starts sharing again.",
@@ -339,26 +526,39 @@ async function refreshSnapshot() {
   }
 }
 
+function setConnectBusy(busy) {
+  for (const id of ["connect", "connect-header"]) {
+    const button = element(id);
+    if (!button) continue;
+    button.disabled = busy;
+    button.textContent = busy ? "Connecting..." : "Connect Google Drive";
+  }
+}
+
 async function connect() {
   if (!drive || !pairing) return;
-  const button = element("connect");
-  button.disabled = true;
-  button.textContent = "Connecting...";
+  setConnectBusy(true);
   try {
     await drive.connect({ prompt: "consent" });
     hideNotice();
-    setWelcome("Connected. Loading the latest encrypted snapshot...", { forget: true });
+    setHeaderConnect(false);
+    if (dashboardVisible) {
+      element("welcome").hidden = true;
+      setSync("refreshing", true);
+    } else {
+      setWelcome("Connected. Loading the latest encrypted snapshot...", { forget: true });
+    }
     poller.start();
   } catch (error) {
     showNotice(error?.message || "Google sign-in was not completed.", "error");
     askToConnect("Google Drive is not connected yet. Try again when you are ready.");
   } finally {
-    button.disabled = false;
-    button.textContent = "Connect Google Drive";
+    setConnectBusy(false);
   }
 }
 
 async function forgetDevice() {
+  snapshotExpiry.invalidate();
   poller?.stop();
   drive?.disconnect();
   let clearError = null;
@@ -370,6 +570,7 @@ async function forgetDevice() {
     pairing = null;
     dashboardVisible = false;
     clearDashboard();
+    setHeaderConnect(false);
     setHeaderForget(false);
   }
   if (clearError) {
@@ -392,11 +593,13 @@ async function pastePrivatePairingLink() {
   if (privateLink === null) return;
   try {
     const nextPairing = await consumePairingHash(pairingHashFromPrivateLink(privateLink));
+    snapshotExpiry.invalidate();
     poller?.stop();
     drive?.disconnect();
     pairing = nextPairing;
     dashboardVisible = false;
     clearDashboard();
+    setHeaderConnect(false);
     if (!prepareDrive()) {
       setWelcome("This viewer has not been configured by its maintainer. The Google web OAuth client ID is missing.", { forget: true });
       showNotice("The public viewer configuration is incomplete.", "error");
@@ -413,6 +616,7 @@ async function pastePrivatePairingLink() {
 function wireUi() {
   element("paste-pairing").addEventListener("click", () => { void pastePrivatePairingLink(); });
   element("connect").addEventListener("click", () => { void connect(); });
+  element("connect-header")?.addEventListener("click", () => { void connect(); });
   element("forget").addEventListener("click", () => { void forgetDevice(); });
   element("forget-header").addEventListener("click", () => { void forgetDevice(); });
   element("install").addEventListener("click", async () => {
@@ -432,7 +636,14 @@ function wireUi() {
     element("install").hidden = true;
   });
   window.addEventListener("online", () => {
+    void snapshotExpiry.wake();
     if (pairing && drive?.connected) void poller?.runNow();
+  });
+  window.addEventListener("pageshow", () => {
+    void snapshotExpiry.wake();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void snapshotExpiry.wake();
   });
 }
 
@@ -464,12 +675,15 @@ async function bootstrap() {
 
   if (!pairing) {
     setWelcome("Scan a View on Phone QR code from your laptop to pair this device.");
+    setHeaderConnect(false);
     setHeaderForget(false);
     return;
   }
   if (pairing.provider !== PROVIDER || PAIRING_VERSION !== "2") {
+    snapshotExpiry.invalidate();
     await clearPairings();
     pairing = null;
+    setHeaderConnect(false);
     setWelcome("This stored pairing is no longer supported. Scan a new QR code.");
     return;
   }
@@ -479,9 +693,12 @@ async function bootstrap() {
     showNotice("The public viewer configuration is incomplete.", "error");
     return;
   }
+  const restored = await restoreCachedView();
   askToConnect(PAIRING_HASH
     ? "Pairing saved. Connect the Google account used by the laptop uploader."
-    : "Pairing restored. Connect Google Drive to resume private updates.");
+    : restored
+      ? "Google Drive is disconnected. Reconnect to resume private updates."
+      : "Pairing restored. Connect Google Drive to resume private updates.");
 }
 
 void bootstrap().catch((error) => {

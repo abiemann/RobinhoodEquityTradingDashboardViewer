@@ -53,6 +53,133 @@ test("shell URLs are project-subpath safe and service worker caches no APIs", as
   assert.doesNotMatch(worker, /googleapis|accounts\.google|\/api\//i);
 });
 
+test("mobile reload defenses keep native scrolling and ship the recovery module", async () => {
+  const [html, styles, worker] = await Promise.all([
+    source("index.html"), source("styles.css"), source("sw.js"),
+  ]);
+  assert.match(html, /id="connect-header"[^>]*\bhidden\b[^>]*>Connect Google Drive<\/button>/);
+  assert.match(html, /id="welcome"[^>]*\bhidden\b/);
+  assert.match(styles, /html\s*\{[^}]*overscroll-behavior-y:contain;/s);
+  assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
+  assert.doesNotMatch(styles, /touch-action\s*:/);
+  assert.match(worker, /rhmra-phone-shell-v4/);
+  assert.match(worker, /"\.\/src\/cache\.js"/);
+  assert.match(worker, /"\.\/src\/expiry\.js"/);
+});
+
+test("verified dashboard expiry is guarded across refresh and mobile suspension", async () => {
+  const app = await source("src/app.js");
+  assert.match(app, /import \{ ExpiryController \} from "\.\/expiry\.js"/);
+  assert.match(app, /clearLastVerifiedEnvelope/);
+  assert.match(app, /expiresAtMs \+ APP_CONFIG\.limits\.clockSkewMs \+ 1/);
+
+  const restore = app.slice(
+    app.indexOf("async function restoreCachedView"),
+    app.indexOf("async function refreshSnapshot"),
+  );
+  assert.ok(restore.indexOf("scheduleSnapshotExpiry") < restore.indexOf("renderDashboard"));
+  assert.match(restore, /snapshotExpiry\.invalidate\(\)/);
+
+  const refresh = app.slice(
+    app.indexOf("async function refreshSnapshot"),
+    app.indexOf("function setConnectBusy"),
+  );
+  const persisted = refresh.indexOf("await persistUpdates(updates)");
+  const scheduled = refresh.indexOf("scheduleSnapshotExpiry(parsed.expiresAtMs)");
+  const rendered = refresh.indexOf("renderDashboard(payload)", scheduled);
+  assert.ok(persisted >= 0 && persisted < scheduled && scheduled < rendered);
+  assert.match(refresh, /DriveFileMissingError\)[^]*snapshotExpiry\.invalidate\(\)/);
+
+  const connectPrompt = app.slice(
+    app.indexOf("function askToConnect"),
+    app.indexOf("async function discardCachedEnvelope"),
+  );
+  assert.doesNotMatch(connectPrompt, /snapshotExpiry\.invalidate/);
+  assert.match(app, /window\.addEventListener\("pageshow"[^]*snapshotExpiry\.wake\(\)/);
+  assert.match(app, /document\.addEventListener\("visibilitychange"[^]*!document\.hidden[^]*snapshotExpiry\.wake\(\)/);
+
+  const expiredUi = app.slice(
+    app.indexOf("function showExpiredDashboardState"),
+    app.indexOf("async function expireSnapshot"),
+  );
+  assert.match(expiredUi, /!drive\?\.connected \|\| !poller\?\.active/);
+
+  const expiry = app.slice(
+    app.indexOf("async function expireSnapshot"),
+    app.indexOf("function pairingHashFromPrivateLink"),
+  );
+  assert.match(expiry, /clearLastVerifiedEnvelope\(expectedPairing, expectedAccepted\)/);
+  assert.ok(expiry.indexOf("if (!isCurrent()) return") < expiry.indexOf("commit(() =>"));
+
+  for (const lifecycle of ["showIosInstallGate", "stopStaleTab", "forgetDevice"]) {
+    const start = app.indexOf(`function ${lifecycle}`);
+    const next = app.indexOf("\nfunction ", start + 1);
+    assert.match(app.slice(start, next < 0 ? undefined : next), /snapshotExpiry\.invalidate\(\)/);
+  }
+
+  const stale = app.slice(
+    app.indexOf("function stopStaleTab"),
+    app.indexOf("function setSync"),
+  );
+  assert.match(stale, /dashboardVisible = false/);
+  assert.match(stale, /clearDashboard\(\)/);
+  assert.match(stale, /setHeaderConnect\(false\)/);
+  assert.match(stale, /setHeaderForget\(false\)/);
+  assert.match(stale, /setWelcome\("This pairing changed in another tab\./);
+
+  const consume = app.slice(
+    app.indexOf("async function consumePairingHash"),
+    app.indexOf("async function restorePairing"),
+  );
+  assert.doesNotMatch(consume, /snapshotExpiry\.invalidate/);
+  const rePair = app.slice(
+    app.indexOf("async function pastePrivatePairingLink"),
+    app.indexOf("function wireUi"),
+  );
+  assert.ok(rePair.indexOf("const nextPairing = await consumePairingHash") <
+    rePair.indexOf("snapshotExpiry.invalidate()"));
+});
+
+test("all non-timer cache deletion is acceptance-bound", async () => {
+  const app = await source("src/app.js");
+  assert.doesNotMatch(app, /lastVerifiedEnvelope\s*(?:=|:)\s*null/);
+
+  const discard = app.slice(
+    app.indexOf("async function discardCachedEnvelope"),
+    app.indexOf("async function restoreCachedView"),
+  );
+  assert.match(discard, /const expectedPairing = pairing/);
+  assert.match(discard, /const expectedAccepted = expectedPairing\.accepted/);
+  assert.match(discard, /clearLastVerifiedEnvelope\(expectedPairing, expectedAccepted\)/);
+  assert.match(discard, /pairing\?\.shareId !== result\.pairing\.shareId/);
+  assert.match(discard, /pairing\?\.generation !== result\.pairing\.generation/);
+  const conditionalClear = discard.indexOf("clearLastVerifiedEnvelope");
+  const exactBoundary = discard.indexOf("sameAcceptanceBoundary");
+  const extraUpdate = discard.indexOf("await persistUpdates(extraUpdates)", exactBoundary);
+  assert.ok(conditionalClear >= 0 && conditionalClear < exactBoundary && exactBoundary < extraUpdate);
+
+  assert.equal(app.match(/await discardCachedEnvelope\(/g)?.length, 3);
+  const missing = app.slice(
+    app.indexOf("if (error instanceof DriveFileMissingError)"),
+    app.indexOf("if (error instanceof PairingStateError)"),
+  );
+  assert.match(missing, /discardCachedEnvelope\(\{ driveFileId: null \}\)/);
+  assert.doesNotMatch(missing, /pairing = \{ \.\.\.pairing, driveFileId: null \}/);
+});
+
+test("privacy documentation limits reload recovery to the encrypted envelope", async () => {
+  const [readme, privacy, security] = await Promise.all([
+    source("README.md"), source("privacy.html"), source("SECURITY.md"),
+  ]);
+  for (const document of [readme, privacy, security]) {
+    assert.match(document, /last verified AES-GCM encrypted envelope/i);
+  }
+  assert.match(readme, /decrypted payload and Google access token are never persisted/i);
+  assert.match(privacy, /stores no Google access token, decrypted dashboard payload/i);
+  assert.match(security, /decrypted dashboard payload is never persisted/i);
+  assert.match(privacy, /access token is kept only in browser memory/i);
+  assert.match(readme, /removed when it expires, Google Drive confirms that sharing stopped, or the user selects \*\*Forget this device\*\*/i);
+});
 test("CSP limits network access without claiming ineffective meta anti-framing", async () => {
   const [html, privacy] = await Promise.all([source("index.html"), source("privacy.html")]);
   assert.match(html, /Content-Security-Policy/);

@@ -21,7 +21,10 @@
     <span id="freshness" class="pill">waiting</span>
     <span id="rules" class="pill"></span>
     <span id="sync" class="pill"></span>
-    <button id="forget-header" class="small-action" type="button" hidden>Forget this device</button>
+    <div class="header-actions">
+      <button id="connect-header" class="small-action connect-action" type="button" hidden>Connect Google Drive</button>
+      <button id="forget-header" class="small-action" type="button" hidden>Forget this device</button>
+    </div>
   </header>
 
   <section id="ios-install-gate" class="install-gate" role="alert" hidden>
@@ -36,7 +39,7 @@
 
   <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 
-  <section id="welcome" class="welcome">
+  <section id="welcome" class="welcome" hidden>
     <h2>Private phone viewer</h2>
     <p id="welcome-message">Scan a View on Phone QR code from your laptop to pair this device.</p>
     <div class="actions">

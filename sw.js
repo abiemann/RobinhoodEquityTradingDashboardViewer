@@ -1,8 +1,8 @@
-const CACHE_NAME = "rhmra-phone-shell-v3";
+const CACHE_NAME = "rhmra-phone-shell-v4";
 const SHELL_FILES = [
   "./", "./index.html", "./privacy.html", "./styles.css", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png",
-  "./config.js", "./src/app.js", "./src/google-drive.js", "./src/poller.js",
+  "./config.js", "./src/app.js", "./src/cache.js", "./src/expiry.js", "./src/google-drive.js", "./src/poller.js",
   "./src/platform.js", "./src/protocol.js", "./src/render.js", "./src/storage.js",
 ];
 const SHELL_URLS = new Set(SHELL_FILES.map((path) => new URL(path, self.registration.scope).href));

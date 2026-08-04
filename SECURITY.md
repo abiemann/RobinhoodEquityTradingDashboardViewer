@@ -23,8 +23,9 @@ Include the affected version/commit, browser and OS, reproducible steps using sy
 - Dashboard plaintext is encrypted on the laptop and decrypted only in the paired viewer.
 - The pairing fragment is scrubbed before the first asynchronous app operation.
 - AES keys are imported as non-extractable and stored as CryptoKey objects where supported.
+- The pairing record may retain only the last verified AES-GCM encrypted envelope for reload recovery; the decrypted dashboard payload is never persisted.
 - Google access tokens remain in memory only.
-- The service worker caches only same-origin static shell assets.
+- The service worker caches only same-origin static shell assets and never caches encrypted envelopes, decrypted payloads, or Google API responses.
 - Envelope and plaintext schemas are strict allowlists with bounded fields and collections.
 - Sequence, capture-time, and same-sequence hash checks detect rollback/equivocation.
 - Rendering uses DOM text nodes, not untrusted HTML.
@@ -41,7 +42,9 @@ Google can observe the signed-in Google account, OAuth application/client and gr
 
 The session fallback stores the raw base64url key in `sessionStorage` only when the browser cannot persist a non-extractable CryptoKey. It lasts only for that tab and is explicitly disclosed in the UI.
 
-`Forget this device` removes local pairing state and discards the in-memory access token. It does not delete the remote encrypted file. The uploader must revoke/delete shares and enforce expiry. Revoking Google app access is a separate user action in the Google Account.
+The locally retained reload copy is the original authenticated AES-GCM encrypted envelope, not dashboard plaintext. It is accepted only when it matches the saved replay boundary and remains within its authenticated expiry. It is removed on expiry, after Google Drive confirms that sharing stopped, or when the pairing is forgotten.
+
+`Forget this device` removes local pairing state, including the cached encrypted envelope, and discards the in-memory access token. It does not delete the remote encrypted file. The uploader must revoke/delete shares and enforce expiry. Revoking Google app access is a separate user action in the Google Account.
 
 ## Maintainer checklist
 

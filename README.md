@@ -34,7 +34,7 @@ The normal camera/QR flow is still a convenient browser fallback. On iOS, howeve
 
 To prevent an easy-to-miss pairing in the wrong storage container, the viewer disables pairing when it detects an iPhone or iPad running outside Home Screen/standalone mode. Follow the displayed **Add to Home Screen** instructions, open the installed RHMRA app, and pair there.
 
-The pairing survives future laptop sessions. The laptop must reuse the same `share_id` and key, update the same Drive file, and advance `sequence`. Google access tokens deliberately stay in memory, so the phone may occasionally ask the user to reconnect after a reload or token expiry.
+The pairing survives future laptop sessions. The laptop must reuse the same `share_id` and key, update the same Drive file, and advance `sequence`. Google access tokens deliberately stay in memory, so the phone may occasionally ask the user to reconnect after a reload or token expiry. A reload can immediately restore the last verified dashboard from the original AES-GCM encrypted envelope saved in the pairing record; the decrypted payload and Google access token are never persisted.
 
 ## How it works
 
@@ -47,12 +47,12 @@ The pairing survives future laptop sessions. The laptop must reuse the same `sha
    ```
 
 4. The PWA removes the fragment from the address bar before its first asynchronous operation, imports the key as a non-extractable Web Crypto key, and persists it in IndexedDB where supported.
-5. While visible, the PWA polls Google Drive every 30 seconds, validates the envelope and payload, rejects rollback/equivocation, decrypts locally, and renders with safe DOM text APIs.
+5. While visible, the PWA polls Google Drive every 30 seconds, validates the envelope and payload, rejects rollback/equivocation, decrypts locally, and renders with safe DOM text APIs. After successful verification, it retains the original AES-GCM encrypted envelope in the pairing record so a reload can restore the last verified view without storing dashboard plaintext.
 6. When backgrounded, polling stops. Returning to the app triggers an immediate refresh.
 
 Successful foreground refreshes remain on a 30-second schedule. Google Drive `429` and `5xx` responses use bounded exponential retry with jitter, honor `Retry-After`, and cap the delay at five minutes. A successful request or return to the foreground resets that backoff.
 
-The service worker caches only the static application shell. It never caches Google API responses, OAuth tokens, encrypted envelopes, or decrypted dashboard data.
+The service worker caches only the static application shell. It never caches Google API responses, OAuth tokens, encrypted envelopes, or decrypted dashboard data. The last verified AES-GCM encrypted envelope is stored only in the local pairing record and is removed when it expires, Google Drive confirms that sharing stopped, or the user selects **Forget this device**.
 
 ## Maintainer setup (one time, not for end users)
 
@@ -158,10 +158,11 @@ The complete link emitted by the laptop must append the exact fragment to the de
 
 - Pairing keys stay on the paired device and are non-extractable where the browser supports CryptoKey cloning.
 - A session-only fallback is used only when that non-extractable key cannot be cloned into IndexedDB.
+- The pairing record may retain the last verified AES-GCM encrypted envelope until its authenticated expiry, a confirmed Stop, or **Forget this device**. It never retains the decrypted dashboard payload.
 - OAuth access tokens remain in memory and are never placed in IndexedDB, local storage, the service-worker cache, or URLs.
 - Disconnect and **Forget this device** only discard the phone's in-memory access token. They deliberately do not revoke the shared Google application grant, because revocation could also invalidate the laptop uploader's authorization. Revoking the application is a separate action in the user's Google Account.
 - The app rejects unknown fields, malformed sizes/timestamps, stale capture times, lower sequences, and same-sequence conflicts.
-- A 401 requires reconnection. When laptop sharing stops and its Drive file disappears, the phone keeps its stable pairing and polls for a replacement file with the exact same share name; a later laptop session resumes automatically. An expired share also remains paired so a later, higher sequence can safely revive it.
+- A 401 requires reconnection. When laptop sharing stops and its Drive file disappears, the phone removes its cached encrypted envelope but keeps the stable pairing and polls for a replacement file with the exact same share name; a later laptop session resumes automatically. An expired share also discards its cached envelope while remaining paired so a later, higher sequence can safely revive it.
 - UI rendering uses `textContent`/DOM nodes rather than HTML strings.
 - The app has no analytics, advertisements, or developer-operated collection endpoint.
 - Google still receives the signed-in account identity and OAuth/Drive request metadata, including the Google application/client, request IP and device/browser information, hidden app-data filename/ID, ciphertext size, file timestamps, and request timing. Encryption protects the dashboard contents, not that metadata. The static host sees ordinary page requests, but URL fragments containing pairing keys are not sent in HTTP requests.
