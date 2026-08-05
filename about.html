@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#14161a">
+  <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="RHMRA Phone Dashboard is a private, read-only viewer for encrypted dashboard snapshots stored in your own Google Drive app-data folder.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; style-src 'self'; img-src 'self' data:">
+  <title>About RHMRA Phone Dashboard</title>
+  <link rel="icon" href="./icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <article class="document">
+    <h1>RHMRA Phone Dashboard</h1>
+    <p class="document-lead">A private, installable, read-only viewer for encrypted RHMRA dashboard snapshots.</p>
+
+    <h2>What the app does</h2>
+    <p>RHMRA Phone Dashboard lets a user view a temporary copy of their own RHMRA account summary, positions, scheduled-run outcomes, and strategy P&amp;L on a paired phone. The laptop dashboard creates the snapshot, encrypts it before upload, and provides a private pairing link containing the decryption key.</p>
+    <p>The phone app is strictly read-only. It has no brokerage credentials and cannot place, change, or cancel trades.</p>
+
+    <h2>Why it connects to Google Drive</h2>
+    <p>The app requests only <code>https://www.googleapis.com/auth/drive.appdata</code>. It uses that permission to find and download the encrypted RHMRA snapshot written by the paired laptop in this app's hidden Google Drive <code>appDataFolder</code>. This limited scope does not let RHMRA browse ordinary files in your Google Drive.</p>
+    <p>The encrypted snapshot travels directly between your browser and Google Drive. There is no developer-operated RHMRA data server, and the maintainer does not receive your dashboard contents, Google access token, or pairing key.</p>
+
+    <h2>Privacy and security</h2>
+    <p>The snapshot is decrypted only on the paired device. The decryption key stays on that device, and Google Drive receives only encrypted dashboard data. The app contains no advertising, analytics SDK, or tracking pixel.</p>
+    <p>For complete details, including local storage, deletion, revocation, expiry, and Google API use, read the <a href="./privacy.html">Privacy Policy</a> and <a href="./terms.html">Terms of Use</a>.</p>
+
+    <h2>Install and pair</h2>
+    <ol>
+      <li><a href="./">Open RHMRA Phone Dashboard</a> and install it from the browser or add it to the Home Screen.</li>
+      <li>Use <strong>View on Phone</strong> on the paired RHMRA laptop dashboard to create a private link or QR code.</li>
+      <li>Pair this device, select <strong>Connect Google Drive</strong>, and approve the limited app-data permission.</li>
+    </ol>
+    <p>Keep the private pairing link and QR code confidential because they contain the dashboard decryption key.</p>
+
+    <h2>Support</h2>
+    <p>For help or security reports, open an issue in the <a href="https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer/issues" rel="noopener noreferrer">RHMRA Phone Dashboard repository</a>. Never include a pairing link, QR code, decryption key, Google token, or brokerage information.</p>
+
+    <nav class="document-nav" aria-label="RHMRA Phone Dashboard links">
+      <a href="./">Open dashboard</a>
+      <a href="./privacy.html">Privacy</a>
+      <a href="./terms.html">Terms</a>
+    </nav>
+  </article>
+</body>
+</html>

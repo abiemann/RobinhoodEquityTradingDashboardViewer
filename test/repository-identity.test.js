@@ -10,15 +10,17 @@ async function source(path) {
 }
 
 test("public metadata uses the canonical repository and Pages identity", async () => {
-  const [readme, privacy, index, manifest, packageText] = await Promise.all([
+  const [readme, about, privacy, terms, index, manifest, packageText] = await Promise.all([
     source("README.md"),
+    source("about.html"),
     source("privacy.html"),
+    source("terms.html"),
     source("index.html"),
     source("manifest.webmanifest"),
     source("package.json"),
   ]);
   const metadata = JSON.parse(packageText);
-  const publishedText = [readme, privacy, index, manifest, packageText].join("\n");
+  const publishedText = [readme, about, privacy, terms, index, manifest, packageText].join("\n");
 
   assert.equal(metadata.name, "robinhood-equity-trading-dashboard-viewer");
   assert.equal(metadata.repository, `${REPOSITORY}.git`);
@@ -26,7 +28,9 @@ test("public metadata uses the canonical repository and Pages identity", async (
   assert.equal(metadata.bugs.url, `${REPOSITORY}/issues`);
   assert.ok(readme.includes(REPOSITORY));
   assert.ok(readme.includes(PAGES));
+  assert.ok(about.includes(`${REPOSITORY}/issues`));
   assert.ok(privacy.includes(`${REPOSITORY}/issues`));
+  assert.ok(terms.includes(`${REPOSITORY}/issues`));
   assert.doesNotMatch(
     publishedText,
     /(?:github\.com\/abiemann|abiemann\.github\.io)\/RHMRA-Phone(?:\/|\b)/i,

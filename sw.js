@@ -1,6 +1,6 @@
-const CACHE_NAME = "rhmra-phone-shell-v11";
+const CACHE_NAME = "rhmra-phone-shell-v12";
 const SHELL_FILES = [
-  "./", "./index.html", "./privacy.html", "./styles.css", "./manifest.webmanifest",
+  "./", "./index.html", "./about.html", "./privacy.html", "./terms.html", "./styles.css", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png",
   "./config.js", "./src/app.js", "./src/cache.js", "./src/expiry.js", "./src/google-drive.js", "./src/poller.js",
   "./src/platform.js", "./src/protocol.js", "./src/render.js", "./src/storage.js",

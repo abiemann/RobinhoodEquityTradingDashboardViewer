@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#14161a">
   <meta name="color-scheme" content="dark">
   <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Privacy Policy for RHMRA Phone Dashboard, including Google Drive access, local storage, deletion, and Limited Use.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; style-src 'self'; img-src 'self' data:">
   <title>RHMRA Phone Dashboard Privacy</title>
   <link rel="icon" href="./icons/icon-192.png" type="image/png">
@@ -21,20 +22,36 @@
     <p>The app requests only <code>https://www.googleapis.com/auth/drive.appdata</code>. It communicates directly from your browser to Google Sign-In and the Google Drive API to read the encrypted RHMRA snapshot stored in this app's hidden <code>appDataFolder</code>. The app cannot browse your normal Drive files through this scope.</p>
     <p>Google processes sign-in and Drive requests under Google's own terms and privacy policy. Google can observe your signed-in account, the OAuth application/client and grant, request IP and device/browser details, Drive API operations, hidden app-data filename and file ID, ciphertext size, file timestamps, and request timing. Encryption protects the dashboard contents, not that metadata. The OAuth access token is kept only in browser memory and is discarded on reload, disconnect, or Forget this device.</p>
 
+    <h2>Google API Services User Data Policy</h2>
+    <p>RHMRA Phone Dashboard's use and transfer to any other app of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+    <p>Google Drive data is used only to provide the encrypted phone-viewer feature. It is never used for advertising, user profiling, sale, or transfer to the developer or an unrelated third party.</p>
+
     <h2>Dashboard data and encryption</h2>
     <p>The laptop uploader places only an encrypted dashboard envelope in Google Drive. The phone viewer accepts a strict allowlist of dashboard fields and does not request raw trade ledgers, gate files, account or order identifiers, local paths, constants, or brokerage credentials.</p>
     <p>The decryption key arrives in the private pairing link fragment, is removed from the address bar immediately, and stays on the paired device. Where supported, it is stored in IndexedDB as a non-extractable Web Crypto key. A browser that cannot clone that key may use a session-only fallback that disappears when the tab closes.</p>
 
-    <h2>Local storage and deletion</h2>
+    <h2>Local storage</h2>
     <p>The app stores the pairing identifier, provider, non-extractable key, last accepted sequence metadata, Google Drive file ID, and the last verified AES-GCM encrypted envelope locally so it can reject rollback, restore the last verified view after a reload, and resume the same pairing. The encrypted envelope is removed when it expires, Google Drive confirms that sharing stopped, or you select <strong>Forget this device</strong>. The app stores no Google access token, decrypted dashboard payload, analytics identifier, or advertising identifier.</p>
-    <p><strong>Forget this device</strong> deletes the local pairing, key, and cached encrypted envelope and discards the current access token. It does not revoke the shared Google application grant or delete the encrypted Drive file. The laptop uploader controls that file and its expiration. Stopping a share removes the current file but retains the stable pairing, allowing a later laptop session to resume automatically. Revoking the application's Google access is a separate Google Account action and may also require reconnecting the laptop uploader.</p>
+
+    <h2>Delete app data and revoke access</h2>
+    <ul>
+      <li>Select <strong>Forget this device</strong> to delete the local pairing, decryption key, cached encrypted envelope, and current access token.</li>
+      <li>Stop sharing from the laptop dashboard to remove the active encrypted snapshot file from Google Drive.</li>
+      <li>Remove RHMRA Phone Dashboard from <a href="https://myaccount.google.com/connections" rel="noopener noreferrer">Google Account third-party connections</a> to revoke its Google access. Because the laptop and phone belong to the same Google application, reconnecting either one may be required afterward.</li>
+      <li>Uninstall the web app or clear this site's browser data to remove any remaining local application data.</li>
+    </ul>
+    <p>Stopping a share retains the stable local pairing so a later laptop session can resume automatically; use <strong>Forget this device</strong> when the local pairing itself should be erased.</p>
 
     <h2>No analytics, ads, or operator collection</h2>
     <p>The app contains no analytics SDK, advertising SDK, tracking pixel, or developer-operated data collection endpoint. The Google Cloud project maintainer may receive aggregate OAuth/API quota, latency, and error metrics, but the app does not send that maintainer your dashboard plaintext, pairing key, Google access token, or Drive file. A static hosting provider may keep ordinary web access logs under that provider's policy. The private pairing fragment is not sent as part of those HTTP requests.</p>
 
     <h2>Questions or security reports</h2>
     <p>Open an issue in the <a href="https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer/issues" rel="noopener noreferrer">RobinhoodEquityTradingDashboardViewer repository</a>. Never include a QR code, private pairing link, decryption key, Google token, or brokerage information in a report.</p>
-    <p><a href="./">Return to the dashboard</a></p>
+    <nav class="document-nav" aria-label="RHMRA Phone Dashboard links">
+      <a href="./about.html">About</a>
+      <a href="./">Open dashboard</a>
+      <a href="./terms.html">Terms</a>
+    </nav>
   </article>
 </body>
 </html>

@@ -63,7 +63,7 @@ The person publishing the PWA performs these steps once.
 In one Google Cloud project:
 
 1. Enable the **Google Drive API**.
-2. Configure the OAuth consent/branding screen and provide this repository's hosted [`privacy.html`](./privacy.html) URL.
+2. Configure the OAuth consent/branding screen with the exact app name **RHMRA Phone Dashboard** and provide the hosted [About](./about.html), [Privacy](./privacy.html), and [Terms](./terms.html) URLs.
 3. Request only this scope:
 
    ```text
@@ -79,7 +79,8 @@ In one Google Cloud project:
 
    Origins do not include the `/RobinhoodEquityTradingDashboardViewer/` path. Add localhost origins separately for local development when needed.
 6. Create the laptop uploader's **Desktop app** OAuth client in the same Google Cloud project. Using the same project makes the web and desktop clients parts of the same Google application and gives them access to the same app-data space for a signed-in user.
-7. Complete Google's publishing, test-user, and verification requirements that apply to the chosen OAuth configuration.
+7. In **Google Auth Platform -> Audience**, use **External** and select **Publish app** so the app is **In production** rather than limited to test users.
+8. In **Branding**, confirm the support and developer contacts, then submit the public name, homepage, Privacy Policy, Terms of Use, and logo for brand verification.
 
 ### 2. Configure the public client ID
 
@@ -98,7 +99,9 @@ The repository includes a pinned GitHub Actions workflow that verifies the PWA a
 All URLs, the manifest, and the service-worker scope are relative, so the project URL `https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/` is supported. After deployment, confirm:
 
 - the dashboard loads at the project URL;
+- `about.html` is public and accurately describes the app;
 - `privacy.html` is public;
+- `terms.html` is public;
 - the browser reports the site as installable; and
 - the OAuth web client's authorized origin matches the deployed origin exactly.
 
@@ -108,9 +111,11 @@ Only the maintainer performs these steps. A user of the published PWA sees only 
 
 Before giving the URL to end users:
 
-- set the OAuth consent screen to the intended public/production state rather than leaving it limited to test users;
-- verify the app name, support contact, developer contact, homepage, hosted privacy URL, and any authorized domains shown by Google;
-- confirm the only requested Drive scope is `https://www.googleapis.com/auth/drive.appdata` and complete Google verification if Google requires it;
+- set the OAuth audience to **External / In production** rather than leaving it limited to test users;
+- verify the exact app name **RHMRA Phone Dashboard**, support contact, developer contact, homepage, hosted privacy URL, hosted terms URL, logo, and any authorized domains shown by Google;
+- confirm the only requested Drive scope is https://www.googleapis.com/auth/drive.appdata;
+- display the Google Drive purpose and Limited Use disclosure before the user starts OAuth, and publish clear deletion and revocation instructions;
+- for verified public branding, serve the app from a custom domain you control, verify DNS ownership in Google Search Console, and add that domain to Google Auth Platform;
 - confirm the Web and Desktop OAuth clients are in the same project, put only the Web client ID in this repository, and configure the separate Desktop client ID in the laptop uploader;
 - make the Web client's Authorized JavaScript origin exactly match the production origin (scheme and host, with no repository path or trailing path);
 - remove production dependence on localhost/test clients and make sure no OAuth client secret, access token, refresh token, pairing key, or `.env` file is committed;
@@ -167,7 +172,7 @@ The complete link emitted by the laptop must append the exact fragment to the de
 - The app has no analytics, advertisements, or developer-operated collection endpoint.
 - Google still receives the signed-in account identity and OAuth/Drive request metadata, including the Google application/client, request IP and device/browser information, hidden app-data filename/ID, ciphertext size, file timestamps, and request timing. Encryption protects the dashboard contents, not that metadata. The static host sees ordinary page requests, but URL fragments containing pairing keys are not sent in HTTP requests.
 
-See [Privacy](./privacy.html) and [Security](./SECURITY.md) for details and limitations.
+See [About](./about.html), [Privacy](./privacy.html), [Terms](./terms.html), and [Security](./SECURITY.md) for details and limitations.
 
 ## Local development
 

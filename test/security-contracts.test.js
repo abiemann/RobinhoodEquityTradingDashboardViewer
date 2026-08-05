@@ -59,7 +59,7 @@ test("Forget stays in the title row while reconnect is centered inside the notic
   ]);
   assert.match(
     html,
-    /<div class="header-title-row">\s*<h1>RHMRA Dashboard<\/h1>\s*<button id="forget-header" class="small-action" type="button" hidden>Forget this device<\/button>\s*<\/div>/s,
+    /<div class="header-title-row">\s*<h1>RHMRA Phone Dashboard<\/h1>\s*<button id="forget-header" class="small-action" type="button" hidden>Forget this device<\/button>\s*<\/div>/s,
   );
   assert.match(
     html,
@@ -146,9 +146,44 @@ test("mobile reload defenses keep native scrolling and ship the recovery module"
   assert.match(styles, /html\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.doesNotMatch(styles, /touch-action\s*:/);
-  assert.match(worker, /rhmra-phone-shell-v11/);
+  assert.match(worker, /rhmra-phone-shell-v12/);
   assert.match(worker, /"\.\/src\/cache\.js"/);
   assert.match(worker, /"\.\/src\/expiry\.js"/);
+});
+
+test("public OAuth release pages disclose scope, purpose, Limited Use, and deletion", async () => {
+  const [html, about, privacy, terms, worker, workflow] = await Promise.all([
+    source("index.html"),
+    source("about.html"),
+    source("privacy.html"),
+    source("terms.html"),
+    source("sw.js"),
+    source(".github/workflows/pages.yml"),
+  ]);
+
+  const disclosure = html.indexOf('class="oauth-disclosure"');
+  const actions = html.indexOf('class="actions"');
+  assert.ok(disclosure >= 0 && disclosure < actions);
+  assert.match(html, /hidden Google Drive app-data folder/i);
+  assert.match(html, /cannot browse your ordinary Drive files/i);
+  assert.match(html, /not sent to the developer/i);
+  assert.match(html, /\.\/privacy\.html/);
+  assert.match(html, /\.\/terms\.html/);
+
+  for (const document of [about, privacy]) {
+    assert.match(document, /drive\.appdata/i);
+    assert.match(document, /encrypted/i);
+  }
+  assert.match(privacy, /Google API Services User Data Policy/);
+  assert.match(privacy, /Limited Use requirements/);
+  assert.match(privacy, /Delete app data and revoke access/);
+  assert.match(privacy, /myaccount\.google\.com\/connections/);
+  assert.match(terms, /Terms of Use/);
+
+  for (const page of ["about.html", "privacy.html", "terms.html"]) {
+    assert.ok(worker.includes(`"./${page}"`));
+    assert.match(workflow, new RegExp(`\\b${page}\\b`));
+  }
 });
 
 test("disconnected cached dashboards hide status pills until a verified refresh", async () => {

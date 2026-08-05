@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p _site/src _site/icons
-          cp config.js index.html manifest.webmanifest privacy.html styles.css sw.js _site/
+          cp about.html config.js index.html manifest.webmanifest privacy.html styles.css sw.js terms.html _site/
           cp src/*.js _site/src/
           cp icons/*.png _site/icons/
       - name: Upload GitHub Pages artifact

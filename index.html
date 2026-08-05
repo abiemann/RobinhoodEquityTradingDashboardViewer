@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#14161a">
   <meta name="color-scheme" content="dark">
   <meta name="referrer" content="no-referrer">
+  <meta name="description" content="RHMRA Phone Dashboard is a private, read-only viewer for encrypted dashboard snapshots stored in your own Google Drive app-data folder.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; script-src 'self' https://accounts.google.com; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data:; connect-src 'self' https://www.googleapis.com https://accounts.google.com; frame-src https://accounts.google.com; worker-src 'self'; manifest-src 'self'">
   <title>RHMRA Phone Dashboard</title>
   <link rel="manifest" href="./manifest.webmanifest">
@@ -17,7 +18,7 @@
 <body>
   <header>
     <div class="header-title-row">
-      <h1>RHMRA Dashboard</h1>
+      <h1>RHMRA Phone Dashboard</h1>
       <button id="forget-header" class="small-action" type="button" hidden>Forget this device</button>
     </div>
     <span id="mode" class="pill" hidden>PHONE</span>
@@ -43,6 +44,12 @@
   <section id="welcome" class="welcome" hidden>
     <h2>Private phone viewer</h2>
     <p id="welcome-message">Scan a View on Phone QR code from your laptop to pair this device.</p>
+    <div class="oauth-disclosure">
+      <h3>Before connecting Google Drive</h3>
+      <p>RHMRA Phone Dashboard requests only access to its own hidden Google Drive app-data folder. It uses that access solely to find and download the encrypted dashboard snapshot created by your paired laptop.</p>
+      <p>The app cannot browse your ordinary Drive files. The snapshot is decrypted only on this device and is not sent to the developer or shared with other users.</p>
+      <p>Selecting <strong>Connect Google Drive</strong> grants this limited access. See the <a href="./privacy.html">Privacy Policy</a> and <a href="./terms.html">Terms of Use</a>.</p>
+    </div>
     <div class="actions">
       <button id="paste-pairing" class="action" type="button">Paste private pairing link</button>
       <button id="connect" class="action primary" type="button" hidden>Connect Google Drive</button>
@@ -72,7 +79,9 @@
 
   <footer>
     Read-only • end-to-end encrypted • no brokerage credentials on this device •
-    <a href="./privacy.html">Privacy</a>
+    <a href="./about.html">About</a> &middot;
+    <a href="./privacy.html">Privacy</a> &middot;
+    <a href="./terms.html">Terms</a>
   </footer>
 </body>
 </html>
