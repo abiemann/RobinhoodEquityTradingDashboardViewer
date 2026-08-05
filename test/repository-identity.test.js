@@ -29,23 +29,23 @@ test("public metadata uses the canonical repository and Pages identity", async (
   assert.ok(readme.includes(REPOSITORY));
   assert.ok(readme.includes(PAGES));
   assert.ok(readme.indexOf(PAGES) < readme.indexOf("## What the end user needs"));
-  assert.ok(readme.indexOf("Normal setup starts on the laptop") < readme.indexOf("Manual fallback only"));
+  assert.ok(readme.indexOf("Normal setup starts on the laptop") < readme.indexOf("Alternate setup"));
   assert.match(readme, /normal setup does not require the user to find or type a web address/);
   assert.match(
     readme,
     /1\. On the phone, open \[RHMRA Phone Dashboard\]\(https:\/\/abiemann\.github\.io\/RobinhoodEquityTradingDashboardViewer\/\)\./,
   );
   const recommendedQr = readme.indexOf("### Recommended: scan the QR code from the laptop dashboard");
-  const backupLink = readme.indexOf("### Backup: install first and paste the private link");
+  const alternateLink = readme.indexOf("### Alternate: install first and paste the private link");
   assert.ok(recommendedQr > 0);
-  assert.ok(recommendedQr < backupLink);
+  assert.ok(recommendedQr < alternateLink);
   assert.match(readme, /select \*\*View on Phone\*\*/);
   assert.match(readme, /select \*\*Pair phone and create QR code\*\*/);
   assert.match(readme, /The dashboard QR flow is the recommended approach/);
   assert.doesNotMatch(readme, /camera\/QR flow is still a convenient browser fallback/i);
   assert.match(readme, /View on Phone\*\* encodes a private pairing link in the QR code/);
   assert.match(readme, /Before releasing \*\*View on Phone\*\* QR pairing to end users/);
-  assert.match(readme, /Copy private link\*\* only as the documented fallback/);
+  assert.match(readme, /Copy private link\*\* as the documented alternate approach/);
   assert.match(readme, /complete link encoded in the laptop's \*\*View on Phone\*\* QR code/);
   assert.ok(about.includes(`${REPOSITORY}/issues`));
   assert.ok(privacy.includes(`${REPOSITORY}/issues`));
