@@ -186,6 +186,67 @@ test("public OAuth release pages disclose scope, purpose, Limited Use, and delet
   }
 });
 
+test("public privacy and release docs disclose the laptop OAuth relay boundary", async () => {
+  const [about, privacy, terms, readme, security] = await Promise.all([
+    source("about.html"), source("privacy.html"), source("terms.html"),
+    source("README.md"), source("SECURITY.md"),
+  ]);
+
+  for (const document of [about, privacy, readme, security]) {
+    assert.match(document, /phone (?:PWA|viewer)[^]*directly[^]*Google/i);
+    assert.match(document, /phone[^]*access token[^]*(?:browser |process )?memory/i);
+  }
+  for (const document of [about, privacy, terms, readme, security]) {
+    assert.match(document, /Cloudflare Worker/i);
+    assert.match(document, /authorization code/i);
+    assert.match(document, /PKCE verifier/i);
+    assert.match(document, /refresh token/i);
+    assert.match(document, /Google(?:'s)? token response/i);
+    assert.match(document, /does not (?:log or store|log or retain|put[^]*application logs)/i);
+  }
+  assert.match(privacy, /service provider\/data processor/i);
+  assert.match(terms, /service provider/i);
+  assert.match(security, /service provider\/data processor/i);
+  for (const document of [privacy, security]) {
+    assert.match(document, /point-of-presence-local rate limiter/i);
+    assert.match(document, /ephemeral request counter/i);
+    assert.match(document, /up to one minute/i);
+    assert.match(document, /derived from the (?:<code>|`)?CF-Connecting-IP/i);
+    assert.match(document, /solely for abuse prevention/i);
+    assert.match(document, /key and counter contain no OAuth request body[^]*(?:access token)[^]*(?:refresh token)[^]*Google token response/i);
+  }
+  for (const document of [privacy, readme, security]) {
+    assert.match(document, /DPAPI/i);
+    for (const excluded of [
+      /dashboard snapshots/i, /Drive files/i, /pairing (?:identifiers or )?keys/i,
+      /brokerage credentials/i, /trading data/i,
+    ]) assert.match(document, excluded);
+  }
+});
+
+test("public docs distinguish laptop Google disconnect from phone-local forget", async () => {
+  const [about, privacy, terms, readme, security] = await Promise.all([
+    source("about.html"), source("privacy.html"), source("terms.html"),
+    source("README.md"), source("SECURITY.md"),
+  ]);
+
+  for (const document of [about, privacy, terms, readme, security]) {
+    assert.match(document, /Disconnect Google Drive/i);
+    assert.match(document, /Google[^]*(?:revoke|revocation)/i);
+    assert.match(document, /DPAPI/i);
+    assert.match(document, /phone pairing/i);
+    assert.match(document, /phone[^]*need[^]*reconnect/i);
+    assert.match(document, /phone[^]*(?:disconnect|Forget this device)[^]*only[^]*(?:phone-local|phone's|that phone)/i);
+    assert.match(document, /phone[^]*(?:disconnect|Forget this device)[^]*(?:do not|does not|neither)[^]*revoke/i);
+  }
+
+  for (const document of [privacy, terms, readme, security]) {
+    assert.match(document, /remote revocation[^]*could not be confirmed/i);
+    assert.match(document, /myaccount\.google\.com\/connections/i);
+    assert.match(document, /local[^]*(?:credential)[^]*(?:still|already)[^]*cleared/i);
+  }
+});
+
 test("disconnected cached dashboards hide status pills until a verified refresh", async () => {
   const [app, render] = await Promise.all([source("src/app.js"), source("src/render.js")]);
 

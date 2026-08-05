@@ -15,16 +15,22 @@
 <body>
   <article class="document">
     <h1>RHMRA Phone Dashboard privacy</h1>
-    <p><strong>Effective August 3, 2026.</strong></p>
-    <p>RHMRA Phone Dashboard is a static, read-only Progressive Web App. Its maintainer does not operate an application server that receives dashboard data, Google access tokens, pairing keys, or usage activity.</p>
+    <p><strong>Effective August 4, 2026.</strong></p>
+    <p>RHMRA Phone Dashboard is a static, read-only Progressive Web App. The phone viewer has no RHMRA application backend: the phone viewer's dashboard downloads and Google tokens are not sent to the maintainer. The companion laptop Agent uses the narrowly scoped OAuth relay described below only to complete Google token exchanges.</p>
 
     <h2>Google Drive access</h2>
-    <p>The app requests only <code>https://www.googleapis.com/auth/drive.appdata</code>. It communicates directly from your browser to Google Sign-In and the Google Drive API to read the encrypted RHMRA snapshot stored in this app's hidden <code>appDataFolder</code>. The app cannot browse your normal Drive files through this scope.</p>
-    <p>Google processes sign-in and Drive requests under Google's own terms and privacy policy. Google can observe your signed-in account, the OAuth application/client and grant, request IP and device/browser details, Drive API operations, hidden app-data filename and file ID, ciphertext size, file timestamps, and request timing. Encryption protects the dashboard contents, not that metadata. The OAuth access token is kept only in browser memory and is discarded on reload, disconnect, or Forget this device.</p>
+    <p>The app requests only <code>https://www.googleapis.com/auth/drive.appdata</code>. The phone PWA communicates directly from your browser to Google Sign-In and the Google Drive API to read the encrypted RHMRA snapshot stored in this app's hidden <code>appDataFolder</code>; it does not use the laptop OAuth relay. The app cannot browse your normal Drive files through this scope.</p>
+    <p>Google processes sign-in and Drive requests under Google's own terms and privacy policy. Google can observe your signed-in account, the OAuth application/client and grant, request IP and device/browser details, Drive API operations, hidden app-data filename and file ID, ciphertext size, file timestamps, and request timing. Encryption protects the dashboard contents, not that metadata. The phone PWA's OAuth access token is kept only in browser memory and is discarded on phone reload, disconnect, or Forget this device.</p>
+
+    <h2>Laptop OAuth relay</h2>
+    <p>The companion RHMRA Agent uses a maintainer-operated Cloudflare Worker for the laptop's Google OAuth token endpoint. For initial authorization, the Agent sends the one-time Google authorization code, S256 PKCE verifier, client identifier, and loopback redirect URI to the relay. For later refreshes, it sends the Google refresh token and client identifier. The relay adds the protected Desktop client credential, forwards the request to Google's fixed HTTPS token endpoint, validates Google's token response, and returns that response to the Agent.</p>
+    <p>This processing is transient. The relay has no application database and its code does not log or store authorization codes, PKCE verifiers, access tokens, refresh tokens, or Google's token response. It never receives dashboard snapshots, Google Drive files, pairing identifiers or keys, brokerage credentials, or trading data. On Windows, the Agent stores its Google access and refresh tokens locally as ciphertext protected for the signed-in Windows user with DPAPI; it does not write plaintext tokens. On platforms without an equivalent supported native store, the Agent keeps them only in process memory.</p>
+    <p>Cloudflare provides the relay's network and execution infrastructure and acts as a service provider/data processor for these transient requests. Cloudflare may process the request and response traffic plus operational metadata such as IP address, timing, headers, and Worker invocation/error information under Cloudflare's own terms and privacy policy. The relay is not used to advertise, profile users, sell data, or access Drive contents.</p>
+    <p>Solely for abuse prevention, Cloudflare's point-of-presence-local rate limiter keeps an ephemeral request counter for up to one minute. The counter is keyed by a value derived from the <code>CF-Connecting-IP</code> address supplied by Cloudflare, or a shared fallback when that address is unavailable or invalid. The key and counter contain no OAuth request body, authorization code, PKCE verifier, access token, refresh token, or Google token response.</p>
 
     <h2>Google API Services User Data Policy</h2>
     <p>RHMRA Phone Dashboard's use and transfer to any other app of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener noreferrer">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
-    <p>Google Drive data is used only to provide the encrypted phone-viewer feature. It is never used for advertising, user profiling, sale, or transfer to the developer or an unrelated third party.</p>
+    <p>Google Drive data is used only to provide the encrypted phone-viewer feature. It is never used for advertising, user profiling, sale, or transfer to the developer or an unrelated third party. Cloudflare processes only the laptop token exchange as a service provider; the relay never receives Google Drive data.</p>
 
     <h2>Dashboard data and encryption</h2>
     <p>The laptop uploader places only an encrypted dashboard envelope in Google Drive. The phone viewer accepts a strict allowlist of dashboard fields and does not request raw trade ledgers, gate files, account or order identifiers, local paths, constants, or brokerage credentials.</p>
@@ -35,15 +41,17 @@
 
     <h2>Delete app data and revoke access</h2>
     <ul>
-      <li>Select <strong>Forget this device</strong> to delete the local pairing, decryption key, cached encrypted envelope, and current access token.</li>
+      <li>On the phone, select <strong>Forget this device</strong> to delete only that phone's local pairing, decryption key, cached encrypted envelope, and in-memory access token. Phone disconnect similarly clears only the in-memory token; neither action asks Google to revoke the shared grant or clears the laptop Agent's credential.</li>
       <li>Stop sharing from the laptop dashboard to remove the active encrypted snapshot file from Google Drive.</li>
+      <li>On the laptop, <strong>Disconnect Google Drive</strong> asks Google to revoke the grant and always clears the Agent's in-memory credential and locally saved DPAPI-protected Google credential. It retains the phone pairing, but the phone may need to reconnect to Google because the laptop and phone use the same Google application grant.</li>
+      <li>If the laptop reports that remote revocation could not be confirmed, remove RHMRA from <a href="https://myaccount.google.com/connections" rel="noopener noreferrer">Google Account third-party connections</a> for immediate assurance. The Agent's local credential has still been cleared.</li>
       <li>Remove RHMRA Phone Dashboard from <a href="https://myaccount.google.com/connections" rel="noopener noreferrer">Google Account third-party connections</a> to revoke its Google access. Because the laptop and phone belong to the same Google application, reconnecting either one may be required afterward.</li>
       <li>Uninstall the web app or clear this site's browser data to remove any remaining local application data.</li>
     </ul>
-    <p>Stopping a share retains the stable local pairing so a later laptop session can resume automatically; use <strong>Forget this device</strong> when the local pairing itself should be erased.</p>
+    <p>Stopping a share and using laptop <strong>Disconnect Google Drive</strong> both retain the stable phone pairing. A later laptop session can reuse that pairing after Google is connected again. Use phone <strong>Forget this device</strong> or laptop <strong>Forget paired phone</strong> when pairing data itself should be erased.</p>
 
-    <h2>No analytics, ads, or operator collection</h2>
-    <p>The app contains no analytics SDK, advertising SDK, tracking pixel, or developer-operated data collection endpoint. The Google Cloud project maintainer may receive aggregate OAuth/API quota, latency, and error metrics, but the app does not send that maintainer your dashboard plaintext, pairing key, Google access token, or Drive file. A static hosting provider may keep ordinary web access logs under that provider's policy. The private pairing fragment is not sent as part of those HTTP requests.</p>
+    <h2>No analytics, ads, or dashboard collection</h2>
+    <p>The phone PWA contains no analytics SDK, advertising SDK, tracking pixel, or developer-operated dashboard collection endpoint. The Google Cloud project maintainer may receive aggregate OAuth/API quota, latency, and error metrics, and the Cloudflare account may expose aggregate Worker invocation and error metrics. The relay code does not put OAuth request or response contents in application logs. Neither the phone PWA nor the relay sends the maintainer dashboard plaintext, pairing keys, or Drive files. A static hosting provider may keep ordinary web access logs under that provider's policy. The private pairing fragment is not sent as part of those HTTP requests.</p>
 
     <h2>Questions or security reports</h2>
     <p>Open an issue in the <a href="https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer/issues" rel="noopener noreferrer">RobinhoodEquityTradingDashboardViewer repository</a>. Never include a QR code, private pairing link, decryption key, Google token, or brokerage information in a report.</p>

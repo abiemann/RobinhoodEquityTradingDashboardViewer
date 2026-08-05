@@ -23,10 +23,15 @@
 
     <h2>Why it connects to Google Drive</h2>
     <p>The app requests only <code>https://www.googleapis.com/auth/drive.appdata</code>. It uses that permission to find and download the encrypted RHMRA snapshot written by the paired laptop in this app's hidden Google Drive <code>appDataFolder</code>. This limited scope does not let RHMRA browse ordinary files in your Google Drive.</p>
-    <p>The encrypted snapshot travels directly between your browser and Google Drive. There is no developer-operated RHMRA data server, and the maintainer does not receive your dashboard contents, Google access token, or pairing key.</p>
+    <p>The encrypted snapshot travels directly between your browser and Google Drive. The phone PWA also signs in directly with Google and keeps its Google access token only in browser memory. There is no developer-operated RHMRA dashboard server, and the maintainer does not receive your dashboard contents, phone access token, or pairing key.</p>
+
+    <h2>How laptop Google sign-in works</h2>
+    <p>The companion RHMRA Agent uses a maintainer-operated Cloudflare Worker only as a laptop OAuth token relay. It transiently forwards the one-time Google authorization code and S256 PKCE verifier, or a later refresh token, to Google's fixed token endpoint and returns Google's token response. The relay code does not log or store those values.</p>
+    <p>The relay never receives dashboard snapshots, Google Drive files, pairing keys, brokerage credentials, or trading data. On Windows, the Agent stores its Google tokens locally as ciphertext protected for the signed-in user with DPAPI. Cloudflare supplies the relay infrastructure and processes the transient token traffic and associated network metadata under its own terms and privacy policy.</p>
 
     <h2>Privacy and security</h2>
     <p>The snapshot is decrypted only on the paired device. The decryption key stays on that device, and Google Drive receives only encrypted dashboard data. The app contains no advertising, analytics SDK, or tracking pixel.</p>
+    <p>Laptop <strong>Disconnect Google Drive</strong> asks Google to revoke access and clears the Agent's locally saved DPAPI-protected Google credential while retaining the phone pairing; the phone may then need to reconnect to Google. Phone disconnect and <strong>Forget this device</strong> clear only phone-local state and do not revoke the shared Google grant. If laptop revocation cannot be confirmed, use Google Account third-party connections as described in the Privacy Policy.</p>
     <p>For complete details, including local storage, deletion, revocation, expiry, and Google API use, read the <a href="./privacy.html">Privacy Policy</a> and <a href="./terms.html">Terms of Use</a>.</p>
 
     <h2>Install and pair</h2>

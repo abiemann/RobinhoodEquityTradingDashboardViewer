@@ -1,6 +1,6 @@
 # RHMRA Phone Dashboard
 
-RHMRA Phone Dashboard is an installable, read-only Progressive Web App for viewing an encrypted RHMRA dashboard on Android or iOS. It is a static site: there is no RHMRA account server, shared financial-data backend, or laptop web server.
+RHMRA Phone Dashboard is an installable, read-only Progressive Web App for viewing an encrypted RHMRA dashboard on Android or iOS. It is a static site: there is no RHMRA account server, shared financial-data backend, or laptop web server. A separate maintainer-operated OAuth relay handles only the companion Agent's laptop token exchanges; it never receives dashboard data.
 
 The public repository is [`RobinhoodEquityTradingDashboardViewer`](https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer).
 
@@ -15,7 +15,7 @@ An end user needs only:
 - the RHMRA laptop dashboard; and
 - the private pairing link or QR code created by **View on Phone**.
 
-End users do **not** need GitHub, Cloudflare, a Google Cloud project, a web server, or an Android/iOS developer account. The PWA maintainer configures Google OAuth once for everyone. Users simply sign in to Google and approve access to this app's hidden Drive data folder.
+End users do **not** need GitHub, a Cloudflare account, a Google Cloud project, a web server, or an Android/iOS developer account. The maintainer configures Google OAuth and the laptop token relay once for everyone. Users simply sign in to Google and approve access to this app's hidden Drive data folder.
 
 ## Install and pair (Android and iOS)
 
@@ -34,7 +34,9 @@ The normal camera/QR flow is still a convenient browser fallback. On iOS, howeve
 
 To prevent an easy-to-miss pairing in the wrong storage container, the viewer disables pairing when it detects an iPhone or iPad running outside Home Screen/standalone mode. Follow the displayed **Add to Home Screen** instructions, open the installed RHMRA app, and pair there.
 
-The pairing survives future laptop sessions. The laptop must reuse the same `share_id` and key, update the same Drive file, and advance `sequence`. Google access tokens deliberately stay in memory, so the phone may occasionally ask the user to reconnect after a reload or token expiry. A reload can immediately restore the last verified dashboard from the original AES-GCM encrypted envelope saved in the pairing record; the decrypted payload and Google access token are never persisted.
+The pairing survives future laptop sessions. The laptop must reuse the same `share_id` and key, update the same Drive file, and advance `sequence`. Phone Google access tokens deliberately stay in browser memory, so the phone may occasionally ask the user to reconnect after a reload or token expiry. A reload can immediately restore the last verified dashboard from the original AES-GCM encrypted envelope saved in the pairing record; on the phone, the decrypted payload and Google access token are never persisted.
+
+The phone PWA signs in and accesses Drive directly from the browser; phone tokens never pass through the laptop OAuth relay. The companion Agent uses that stateless Cloudflare Worker only to forward the laptop's one-time authorization code and S256 PKCE verifier, or a later refresh token, to Google's fixed token endpoint and return Google's token response. The Worker code does not log or store those values and receives no dashboard snapshots, Drive files, pairing keys, brokerage credentials, or trading data. On Windows, the Agent stores its Google tokens locally as current-user DPAPI ciphertext.
 
 ## How it works
 
@@ -53,6 +55,13 @@ The pairing survives future laptop sessions. The laptop must reuse the same `sha
 Successful foreground refreshes remain on a 30-second schedule. Google Drive `429` and `5xx` responses use bounded exponential retry with jitter, honor `Retry-After`, and cap the delay at five minutes. A successful request or return to the foreground resets that backoff.
 
 The service worker caches only the static application shell. It never caches Google API responses, OAuth tokens, encrypted envelopes, or decrypted dashboard data. The last verified AES-GCM encrypted envelope is stored only in the local pairing record and is removed when it expires, Google Drive confirms that sharing stopped, or the user selects **Forget this device**.
+
+## Stop, disconnect, and forget
+
+- **Stop sharing** on the laptop removes the active encrypted Drive snapshot and stops uploads, but keeps the laptop and phone pairing for a later session.
+- **Disconnect Google Drive** on the laptop requests Google revocation, then clears the Agent's in-memory Google credential and locally saved DPAPI-protected credential whether or not Google confirms the remote revocation. It keeps the phone pairing. Because the laptop and phone use the same Google application grant, the phone may need to select **Connect Google Drive** again afterward.
+- If the laptop reports that remote revocation could not be confirmed, remove RHMRA from [Google Account third-party connections](https://myaccount.google.com/connections) for immediate assurance. The Agent's local credential has already been cleared.
+- Phone disconnect clears only the phone's in-memory access token. Phone **Forget this device** clears only that phone's pairing, cached encrypted envelope, decryption key, and in-memory token. Neither phone action requests Google revocation or clears the laptop Agent's credential.
 
 ## Maintainer setup (one time, not for end users)
 
@@ -78,11 +87,17 @@ In one Google Cloud project:
    ```
 
    Origins do not include the `/RobinhoodEquityTradingDashboardViewer/` path. Add localhost origins separately for local development when needed.
-6. Create the laptop uploader's **Desktop app** OAuth client in the same Google Cloud project. Using the same project makes the web and desktop clients parts of the same Google application and gives them access to the same app-data space for a signed-in user.
+6. Create the laptop uploader's **Desktop app** OAuth client in the same Google Cloud project. Using the same project makes the web and desktop clients parts of the same Google application and gives them access to the same app-data space for a signed-in user. Its secret belongs only in the OAuth Worker's encrypted secret store; do not distribute it with the Agent or PWA.
 7. In **Google Auth Platform -> Audience**, use **External** and select **Publish app** so the app is **In production** rather than limited to test users.
 8. In **Branding**, confirm the support and developer contacts, then submit the public name, homepage, Privacy Policy, Terms of Use, and logo for brand verification.
 
-### 2. Configure the public client ID
+### 2. Deploy the laptop OAuth relay
+
+Deploy the stateless Cloudflare Worker from [`phone-share-oauth-broker`](https://github.com/abiemann/RobinhoodEquityTradingAgent/tree/main/phone-share-oauth-broker) once for the public Agent release. Store the Desktop client secret with Wrangler's encrypted Worker-secret command, run the Worker's tests, and pin the released Agent to the exact production HTTPS endpoint. Do not enable request-body logging, redirects, CORS, a database, KV, Durable Objects, or analytics payloads for this relay. End users neither deploy nor configure it.
+
+The relay transiently receives the authorization code and S256 PKCE verifier or refresh token, then Google's token response. Cloudflare provides the network and execution infrastructure and processes that traffic and its network metadata as a service provider under Cloudflare's terms and privacy policy. The Worker must never receive dashboard snapshots, Drive files, pairing keys, brokerage credentials, or trading data.
+
+### 3. Configure the public client ID
 
 Edit [`config.js`](./config.js) and replace only:
 
@@ -92,7 +107,7 @@ googleClientId: "REPLACE_WITH_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com"
 
 The web OAuth client ID is public configuration, not a password. Do not add an OAuth client secret, refresh token, access token, pairing key, or laptop credential to this repository.
 
-### 3. Publish the static site
+### 4. Publish the static site
 
 The repository includes a pinned GitHub Actions workflow that verifies the PWA and publishes only its static application allowlist. In **Settings -> Pages**, set **Source** to **GitHub Actions**. The workflow deploys automatically from `main`; a maintainer can also start it manually from **Actions -> Publish PWA to GitHub Pages** for a controlled prerelease. It refuses to publish while `config.js` still contains the placeholder Google client ID.
 
@@ -107,7 +122,7 @@ All URLs, the manifest, and the service-worker scope are relative, so the projec
 
 Only the maintainer performs these steps. A user of the published PWA sees only Google sign-in/consent.
 
-### 4. Public-release checklist
+### 5. Public-release checklist
 
 Before giving the URL to end users:
 
@@ -116,10 +131,12 @@ Before giving the URL to end users:
 - confirm the only requested Drive scope is https://www.googleapis.com/auth/drive.appdata;
 - display the Google Drive purpose and Limited Use disclosure before the user starts OAuth, and publish clear deletion and revocation instructions;
 - for verified public branding, serve the app from a custom domain you control, verify DNS ownership in Google Search Console, and add that domain to Google Auth Platform;
-- confirm the Web and Desktop OAuth clients are in the same project, put only the Web client ID in this repository, and configure the separate Desktop client ID in the laptop uploader;
+- confirm the Web and Desktop OAuth clients are in the same project, put only the Web client ID in this repository, and pin the Agent's public Desktop client ID and exact production relay URL;
+- keep the Desktop client secret only in the Worker's encrypted secret store, confirm OAuth request/response bodies are not logged or persisted, and test initial exchange plus refresh through the production relay;
 - make the Web client's Authorized JavaScript origin exactly match the production origin (scheme and host, with no repository path or trailing path);
 - remove production dependence on localhost/test clients and make sure no OAuth client secret, access token, refresh token, pairing key, or `.env` file is committed;
 - test a brand-new pairing end to end with a non-maintainer Google account on both Android and iOS, including install, sign-in, foreground polling, expiry, Stop, and **Forget this device**;
+- test laptop **Disconnect Google Drive** with confirmed and unconfirmed Google revocation, verify the DPAPI-backed credential is removed in both cases, confirm pairing remains, and reconnect the phone if the shared Google grant was revoked;
 - test Google-grant removal and reconnection so the recovery instructions are accurate; and
 - publish the privacy and security documents before requesting OAuth approval or verification.
 
@@ -130,6 +147,8 @@ The uploader must authenticate to Drive with the desktop OAuth client from the s
 ```text
 rhmra-phone-v2-<share_id>.json
 ```
+
+The released Agent sends the one-time Google authorization code plus S256 PKCE verifier, or a refresh token, to the exact pinned OAuth relay endpoint. The relay adds the protected Desktop client credential, forwards only the allow-listed form to Google's fixed HTTPS token endpoint, validates Google's token response, and returns it without application logging or persistence. On Windows, the Agent stores access and refresh tokens below local application data only as ciphertext protected for the current user with DPAPI; other platforms keep them only in process memory until an equivalent native store is supported.
 
 The PWA queries that exact name with `trashed = false` and fails closed if duplicates exist. Once discovered, the Drive file ID is retained locally and reused.
 
@@ -164,13 +183,14 @@ The complete link emitted by the laptop must append the exact fragment to the de
 - Pairing keys stay on the paired device and are non-extractable where the browser supports CryptoKey cloning.
 - A session-only fallback is used only when that non-extractable key cannot be cloned into IndexedDB.
 - The pairing record may retain the last verified AES-GCM encrypted envelope until its authenticated expiry, a confirmed Stop, or **Forget this device**. It never retains the decrypted dashboard payload.
-- OAuth access tokens remain in memory and are never placed in IndexedDB, local storage, the service-worker cache, or URLs.
-- Disconnect and **Forget this device** only discard the phone's in-memory access token. They deliberately do not revoke the shared Google application grant, because revocation could also invalidate the laptop uploader's authorization. Revoking the application is a separate action in the user's Google Account.
+- Phone OAuth access tokens remain in browser memory and are never placed in IndexedDB, local storage, the service-worker cache, URLs, or the laptop relay.
+- Laptop OAuth exchange values pass transiently through the Cloudflare Worker, whose code has no application persistence or token logging. On Windows, the Agent's local token copy is current-user DPAPI ciphertext; unsupported platforms retain it only in process memory.
+- In the phone PWA, disconnect and **Forget this device** affect only phone-local state and deliberately do not revoke the shared Google application grant or clear the Agent's credential. This is distinct from laptop **Disconnect Google Drive**, which requests Google revocation and clears the Agent's local DPAPI-backed credential while retaining the phone pairing.
 - The app rejects unknown fields, malformed sizes/timestamps, stale capture times, lower sequences, and same-sequence conflicts.
 - A 401 requires reconnection. When laptop sharing stops and its Drive file disappears, the phone removes its cached encrypted envelope but keeps the stable pairing and polls for a replacement file with the exact same share name; a later laptop session resumes automatically. An expired share also discards its cached envelope while remaining paired so a later, higher sequence can safely revive it.
 - UI rendering uses `textContent`/DOM nodes rather than HTML strings.
-- The app has no analytics, advertisements, or developer-operated collection endpoint.
-- Google still receives the signed-in account identity and OAuth/Drive request metadata, including the Google application/client, request IP and device/browser information, hidden app-data filename/ID, ciphertext size, file timestamps, and request timing. Encryption protects the dashboard contents, not that metadata. The static host sees ordinary page requests, but URL fragments containing pairing keys are not sent in HTTP requests.
+- The phone PWA has no analytics, advertisements, or developer-operated dashboard collection endpoint. The OAuth relay has no application analytics payload and never receives dashboard or Drive data.
+- Google still receives the signed-in account identity and OAuth/Drive request metadata, including the Google application/client, request IP and device/browser information, hidden app-data filename/ID, ciphertext size, file timestamps, and request timing. Encryption protects the dashboard contents, not that metadata. Cloudflare processes the laptop token traffic and associated network/Worker metadata as the relay infrastructure provider. The static host sees ordinary page requests, but URL fragments containing pairing keys are not sent in HTTP requests.
 
 See [About](./about.html), [Privacy](./privacy.html), [Terms](./terms.html), and [Security](./SECURITY.md) for details and limitations.
 

@@ -29,15 +29,16 @@
       <li>Use the app only with accounts, devices, and data you are authorized to access.</li>
       <li>Keep private pairing links, QR codes, decryption keys, and devices secure.</li>
       <li>Review snapshot age and connection status before relying on displayed information.</li>
-      <li>Use <strong>Forget this device</strong>, stop laptop sharing, or revoke Google access when access should end.</li>
+      <li>Use phone <strong>Forget this device</strong>, stop laptop sharing, laptop <strong>Disconnect Google Drive</strong>, or Google Account third-party connections when the corresponding access should end.</li>
       <li>Do not misuse the app, interfere with its operation, or attempt to access another person's data.</li>
     </ul>
 
-    <h2>Google Drive and third-party services</h2>
-    <p>The app uses Google Sign-In and the Google Drive API to access only its hidden app-data folder. Google processes those requests under Google's terms and privacy policy. GitHub Pages or another configured static host may serve the application files under that provider's terms. Availability of those third-party services is outside the maintainer's control.</p>
+    <h2>Google Drive, OAuth relay, and third-party services</h2>
+    <p>The phone PWA uses Google Sign-In and the Google Drive API directly to access only its hidden app-data folder. Google processes those requests under Google's terms and privacy policy. The companion laptop Agent uses a maintainer-operated Cloudflare Worker as a transient OAuth token relay: it forwards the one-time Google authorization code and S256 PKCE verifier, or a refresh token, to Google and returns Google's token response. The relay code does not log or store those values and never receives dashboard snapshots, Drive files, pairing keys, brokerage credentials, or trading data.</p>
+    <p>Cloudflare provides the relay infrastructure and processes the transient token request, response, and associated network metadata as a service provider under Cloudflare's terms and privacy policy. GitHub Pages or another configured static host may serve the application files under that provider's terms. Availability of Google, Cloudflare, and static-hosting services is outside the maintainer's control.</p>
 
     <h2>Availability, accuracy, and expiry</h2>
-    <p>Snapshots can be delayed, unavailable, expired, or incomplete because of network, browser, Google Drive, laptop, market-data, or upstream-system conditions. The app attempts to label stale and disconnected views, but you must verify important facts through authoritative sources.</p>
+    <p>Snapshots can be delayed, unavailable, expired, or incomplete because of network, browser, Google Drive, OAuth relay, Cloudflare, laptop, market-data, or upstream-system conditions. The app attempts to label stale and disconnected views, but you must verify important facts through authoritative sources.</p>
 
     <h2>Open-source software and disclaimer</h2>
     <p>The software is provided under its repository license and on an “as is” and “as available” basis, without warranties of any kind to the extent permitted by law. The maintainer does not guarantee uninterrupted operation, accuracy, fitness for a particular purpose, or preservation of any snapshot.</p>
@@ -46,7 +47,8 @@
     <p>To the maximum extent permitted by applicable law, the maintainer and contributors are not liable for trading losses, lost profits, lost data, loss of access, or any indirect, incidental, special, consequential, or punitive damages arising from use of or inability to use the app.</p>
 
     <h2>Ending access and deleting data</h2>
-    <p>You may stop using the app at any time. <strong>Forget this device</strong> removes the local pairing and cached encrypted snapshot. Stopping sharing from the laptop removes the active encrypted Drive file. You may also revoke RHMRA Phone Dashboard from your Google Account's third-party connections and uninstall the app or clear its site data.</p>
+    <p>You may stop using the app at any time. On the phone, <strong>Forget this device</strong> removes only the phone-local pairing, cached encrypted snapshot, and in-memory token; phone disconnect clears only its in-memory token. Neither phone action revokes Google's shared grant or clears the laptop credential. Stopping sharing from the laptop removes the active encrypted Drive file but retains pairing.</p>
+    <p>On the laptop, <strong>Disconnect Google Drive</strong> requests Google revocation and clears the Agent's local in-memory and DPAPI-protected Google credential while retaining the phone pairing. Because the laptop and phone share one Google application grant, the phone may need to reconnect. If remote revocation could not be confirmed, remove RHMRA from <a href="https://myaccount.google.com/connections" rel="noopener noreferrer">Google Account third-party connections</a>. The Agent's local credential has already been cleared. You may also uninstall the phone PWA or clear its site data.</p>
 
     <h2>Changes</h2>
     <p>These Terms may be updated as the app changes. The effective date above identifies the current version. Continued use after an update means you accept the revised Terms.</p>
