@@ -85,6 +85,7 @@ let drive = null;
 let poller = null;
 let deferredInstall = null;
 let dashboardVisible = false;
+let connectActionLabel = "Connect Google Drive";
 
 const snapshotExpiry = new ExpiryController({ onExpire: expireSnapshot });
 
@@ -321,14 +322,18 @@ function prepareDrive() {
   return true;
 }
 
-function askToConnect(message = "Pairing is ready. Connect the Google account used by the laptop uploader.") {
+function askToConnect(
+  message = "Pairing is ready. Connect the Google account used by the laptop uploader.",
+  { resume = false } = {},
+) {
   setHeaderStatusPillsVisible(false);
   poller?.stop();
   drive?.disconnect();
   setHeaderForget(true);
-  element("connect").textContent = "Connect Google Drive";
+  connectActionLabel = resume ? "Resume Google Drive" : "Connect Google Drive";
+  element("connect").textContent = connectActionLabel;
   const headerConnect = element("connect-header");
-  if (headerConnect) headerConnect.textContent = "Connect Google Drive";
+  if (headerConnect) headerConnect.textContent = connectActionLabel;
   if (dashboardVisible) {
     element("welcome").hidden = true;
     showNotice(`${message} The last verified dashboard remains visible.`, "offline", { connect: true });
@@ -455,7 +460,10 @@ async function refreshSnapshot() {
     setHeaderStatusPillsVisible(true);
   } catch (error) {
     if (error instanceof DriveAuthRequiredError) {
-      askToConnect("Google Drive authorization expired. Reconnect to resume private updates.");
+      askToConnect(
+        "Google Drive authorization expired. Resume access to continue private updates.",
+        { resume: true },
+      );
       return;
     }
     if (error instanceof DriveFileMissingError) {
@@ -535,7 +543,7 @@ function setConnectBusy(busy) {
     const button = element(id);
     if (!button) continue;
     button.disabled = busy;
-    button.textContent = busy ? "Connecting..." : "Connect Google Drive";
+    button.textContent = busy ? "Connecting..." : connectActionLabel;
   }
 }
 
@@ -543,7 +551,9 @@ async function connect() {
   if (!drive || !pairing) return;
   setConnectBusy(true);
   try {
-    await drive.connect({ prompt: "consent" });
+    // Google requires a user gesture for browser token renewal. The empty
+    // prompt reuses prior consent instead of forcing it on every relaunch.
+    await drive.connect();
     hideNotice();
     setHeaderConnect(false);
     if (dashboardVisible) {
@@ -555,7 +565,10 @@ async function connect() {
     poller.start();
   } catch (error) {
     showNotice(error?.message || "Google sign-in was not completed.", "error");
-    askToConnect("Google Drive is not connected yet. Try again when you are ready.");
+    askToConnect(
+      "Google Drive is not connected yet. Try again when you are ready.",
+      { resume: Boolean(pairing?.accepted || dashboardVisible) },
+    );
   } finally {
     setConnectBusy(false);
   }
@@ -609,7 +622,10 @@ async function pastePrivatePairingLink() {
       showNotice("The public viewer configuration is incomplete.", "error");
       return;
     }
-    askToConnect("Pairing saved. Connect the Google account used by the laptop uploader.");
+    askToConnect(
+      "Pairing saved. Connect the Google account used by the laptop uploader.",
+      { resume: Boolean(pairing?.accepted) },
+    );
   } catch (error) {
     showNotice(error?.message || "The private pairing link is invalid.", "error");
   } finally {
@@ -700,11 +716,15 @@ async function bootstrap() {
     return;
   }
   const restored = await restoreCachedView();
-  askToConnect(PAIRING_HASH
-    ? "Pairing saved. Connect the Google account used by the laptop uploader."
-    : restored
-      ? "Google Drive is disconnected. Reconnect to resume private updates."
-      : "Pairing restored. Connect Google Drive to resume private updates.");
+  const resume = Boolean(pairing.accepted || restored);
+  askToConnect(
+    PAIRING_HASH
+      ? "Pairing saved. Connect the Google account used by the laptop uploader."
+      : resume
+        ? "Google Drive access is ready to resume."
+        : "Pairing restored. Connect Google Drive to resume private updates.",
+    { resume },
+  );
 }
 
 void bootstrap().catch((error) => {

@@ -15,6 +15,8 @@ test("rendering and controller avoid HTML injection and long-lived token storage
   ]);
   assert.doesNotMatch(`${render}\n${app}`, /\.innerHTML\b|insertAdjacentHTML|document\.write/);
   assert.doesNotMatch(`${app}\n${drive}`, /localStorage/);
+  assert.doesNotMatch(app, /prompt:\s*["']consent["']/);
+  assert.match(drive, /async connect\(\{ prompt = "" \} = \{\}\)/);
   assert.doesNotMatch(drive, /\.revoke\s*\(/);
   assert.match(drive, /hasGrantedAllScopes\(response, this\.scope\)/);
   assert.doesNotMatch(html, /<script[^>]+src="https:\/\/accounts\.google\.com/i);
@@ -85,6 +87,7 @@ test("Forget stays in the title row while reconnect is centered inside the notic
     /registerServiceWorker\(\)\.catch\([^]*if \(element\("notice"\)\.hidden\) \{[^]*showNotice\(/,
   );
   assert.match(app, /for \(const id of \["connect", "connect-header"\]\)/);
+  assert.match(app, /resume \? "Resume Google Drive" : "Connect Google Drive"/);
   assert.match(
     app,
     /element\("connect-header"\)\?\.addEventListener\("click", \(\) => \{ void connect\(\); \}\)/,
@@ -146,7 +149,7 @@ test("mobile reload defenses keep native scrolling and ship the recovery module"
   assert.match(styles, /html\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.doesNotMatch(styles, /touch-action\s*:/);
-  assert.match(worker, /rhmra-phone-shell-v12/);
+  assert.match(worker, /rhmra-phone-shell-v13/);
   assert.match(worker, /"\.\/src\/cache\.js"/);
   assert.match(worker, /"\.\/src\/expiry\.js"/);
 });

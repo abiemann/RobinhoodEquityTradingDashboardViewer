@@ -89,13 +89,17 @@ test("connect accepts a GIS token only when Drive app-data scope was granted", a
   const previousGoogle = globalThis.google;
   const scope = "https://www.googleapis.com/auth/drive.appdata";
   let granted = false;
+  const prompts = [];
   globalThis.google = { accounts: { oauth2: {
     hasGrantedAllScopes: (_response, requestedScope) => granted && requestedScope === scope,
     initTokenClient: (configuration) => ({
-      requestAccessToken: () => configuration.callback({
-        access_token: "new-memory-token",
-        expires_in: 3_600,
-      }),
+      requestAccessToken: (overrideConfiguration) => {
+        prompts.push(overrideConfiguration?.prompt);
+        configuration.callback({
+          access_token: "new-memory-token",
+          expires_in: 3_600,
+        });
+      },
     }),
   } } };
   try {
@@ -111,6 +115,7 @@ test("connect accepts a GIS token only when Drive app-data scope was granted", a
     await client.connect();
     assert.equal(client.accessToken, "new-memory-token");
     assert.equal(client.connected, true);
+    assert.deepEqual(prompts, ["", ""]);
   } finally {
     globalThis.google = previousGoogle;
   }

@@ -146,7 +146,7 @@ export class GoogleDriveClient {
     return typeof this.accessToken === "string" && Date.now() < this.tokenExpiresAt - 30_000;
   }
 
-  async connect({ prompt = "consent" } = {}) {
+  async connect({ prompt = "" } = {}) {
     const oauth2 = await waitForGoogleIdentity();
     this.disconnect();
     return new Promise((resolve, reject) => {
@@ -181,6 +181,9 @@ export class GoogleDriveClient {
           reject(new DriveAuthRequiredError(error?.message || "Google sign-in was interrupted."));
         },
       });
+      // An empty prompt lets Google reuse an existing grant after this
+      // user-initiated request. Google still shows sign-in or consent when
+      // the account session or requested permission is missing.
       tokenClient.requestAccessToken({ prompt });
     });
   }
