@@ -117,6 +117,21 @@ test("phone header stays pinned while dashboard content keeps native scrolling",
   assert.doesNotMatch(render, /detail\.textContent\s*=\s*""/);
   assert.doesNotMatch(html, /by rules era/i);
   assert.doesNotMatch(render, /by rules era/i);
+  assert.doesNotMatch(render, /ledger fill basis/i);
+});
+
+test("phone typography increases normal text one pixel and small text two pixels", async () => {
+  const styles = await source("styles.css");
+  assert.match(styles, /body\s*\{[^}]*font:15px\/1\.5/s);
+  assert.match(styles, /h1\s*\{[^}]*font-size:20px;/s);
+  assert.match(styles, /\.card \.value\s*\{[^}]*font-size:21px;/s);
+  assert.match(styles, /\.card \.key\s*\{[^}]*font-size:13px;/s);
+  assert.match(styles, /\.empty\s*\{[^}]*font-size:16px;/s);
+  assert.match(styles, /\.run \.label\s*\{[^}]*font-size:13px;/s);
+  assert.match(styles, /th\s*\{[^}]*font-size:13px;/s);
+  assert.match(styles, /@media \(max-width:540px\)\s*\{[^}]*body\s*\{[^}]*font-size:14px;/s);
+  assert.match(styles, /@media \(max-width:540px\)[\s\S]*?\.card \.value\s*\{[^}]*font-size:19px;/);
+  assert.match(styles, /@media \(max-width:540px\)[\s\S]*?\.empty\s*\{[^}]*font-size:15px;/);
 });
 
 test("mobile reload defenses keep native scrolling and ship the recovery module", async () => {
@@ -131,7 +146,7 @@ test("mobile reload defenses keep native scrolling and ship the recovery module"
   assert.match(styles, /html\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.doesNotMatch(styles, /touch-action\s*:/);
-  assert.match(worker, /rhmra-phone-shell-v10/);
+  assert.match(worker, /rhmra-phone-shell-v11/);
   assert.match(worker, /"\.\/src\/cache\.js"/);
   assert.match(worker, /"\.\/src\/expiry\.js"/);
 });

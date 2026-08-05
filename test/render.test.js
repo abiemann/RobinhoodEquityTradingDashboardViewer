@@ -64,7 +64,7 @@ test("a hidden agreement clears any previously visible comparison", () => {
 
 test("phone era table omits internal rules-version data", () => {
   assert.deepEqual(ERA_TABLE_HEADERS, [
-    "Dates", "Buys", "Sells", "STOPs", "Strategy P&L (ledger fill basis)",
+    "Dates", "Buys", "Sells", "STOPs", "Strategy P&L",
   ]);
   assert.deepEqual(eraTableValues({
     rules_version: "internal-version",
@@ -86,14 +86,15 @@ test("phone header omits the internal rules-version badge", async () => {
   assert.doesNotMatch(renderer, /byId\(["']rules["']\)/);
 });
 
-test("phone P&L heading omits rules-era wording", async () => {
+test("phone P&L heading omits rules-era and ledger-fill-basis wording", async () => {
   const [markup, renderer] = await Promise.all([
     readFile(new URL("../index.html", import.meta.url), "utf8"),
     readFile(new URL("../src/render.js", import.meta.url), "utf8"),
   ]);
-  assert.equal(eraHeading(true), "Strategy P&L (ledger fill basis)");
+  assert.equal(eraHeading(true), "Strategy P&L");
   assert.equal(eraHeading(false), "Strategy P&L (legacy ledger)");
   assert.doesNotMatch(`${markup}\n${renderer}`, /by rules era/i);
+  assert.doesNotMatch(`${markup}\n${renderer}`, /ledger fill basis/i);
 });
 
 test("header status pills hide stale prior state and reveal together", () => {

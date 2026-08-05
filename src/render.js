@@ -9,11 +9,11 @@ const viewState = {
 const HEADER_STATUS_PILL_IDS = Object.freeze(["mode", "freshness", "sync"]);
 
 export const ERA_TABLE_HEADERS = Object.freeze([
-  "Dates", "Buys", "Sells", "STOPs", "Strategy P&L (ledger fill basis)",
+  "Dates", "Buys", "Sells", "STOPs", "Strategy P&L",
 ]);
 
 export function eraHeading(hasReconciliation) {
-  return hasReconciliation ? "Strategy P&L (ledger fill basis)" : "Strategy P&L (legacy ledger)";
+  return hasReconciliation ? "Strategy P&L" : "Strategy P&L (legacy ledger)";
 }
 
 export function runDetailEntries(runs) {
