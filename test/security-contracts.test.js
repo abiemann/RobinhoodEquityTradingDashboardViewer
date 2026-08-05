@@ -150,7 +150,7 @@ test("mobile reload defenses keep native scrolling and ship the recovery module"
   assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.doesNotMatch(styles, /touch-action\s*:/);
   assert.match(worker, /const CACHE_PREFIX = "rhmra-phone-shell-"/);
-  assert.match(worker, /rhmra-phone-shell-v15/);
+  assert.match(worker, /rhmra-phone-shell-v16/);
   assert.match(worker, /name\.startsWith\(CACHE_PREFIX\) && name !== CACHE_NAME/);
   assert.doesNotMatch(worker, /names\.filter\(\(name\) => name !== CACHE_NAME\)/);
   assert.match(worker, /"\.\/src\/cache\.js"/);
@@ -444,6 +444,23 @@ test("embedded browsers are gated before pairing without forwarding the private 
   assert.match(handoff, /element\("connect"\)\.disabled = true/);
   assert.match(handoff, /element\("install"\)\.disabled = true/);
   assert.doesNotMatch(handoff, /PAIRING_HASH|location\.href|location\.hash/);
+});
+
+test("embedded-browser startup tolerates a cached pre-gate HTML shell", async () => {
+  const app = await source("src/app.js");
+  const ensureStart = app.indexOf("function ensureExternalBrowserGate");
+  const showStart = app.indexOf("function showExternalBrowserGate");
+  const showEnd = app.indexOf("async function copyPublicPhoneUrl");
+  const ensure = app.slice(ensureStart, showStart);
+  const show = app.slice(showStart, showEnd);
+
+  assert.ok(ensureStart > 0);
+  assert.match(ensure, /element\("ios-install-gate"\) \|\| document\.createElement\("section"\)/);
+  assert.match(ensure, /gate\.replaceChildren/);
+  assert.doesNotMatch(ensure, /innerHTML|insertAdjacentHTML/);
+  assert.ok(show.indexOf("ensureExternalBrowserGate()") < show.indexOf("gate.hidden = false"));
+  assert.match(show, /element\("copy-browser-link"\)\.onclick/);
+  assert.doesNotMatch(app, /element\("copy-browser-link"\)\.addEventListener/);
 });
 
 test("pairing acceptance is read, compared, and written in one transaction", async () => {

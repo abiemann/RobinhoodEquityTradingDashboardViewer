@@ -120,11 +120,70 @@ function showIosInstallGate() {
   setSync("install required", true);
 }
 
+function ensureExternalBrowserGate() {
+  const existing = element("external-browser-gate");
+  if (existing) return existing;
+
+  // A host app may retain an older HTML shell while fetching the latest
+  // no-store JavaScript. Build the gate safely so that mixed-cache startup
+  // still blocks pairing instead of crashing on a missing element.
+  const gate = element("ios-install-gate") || document.createElement("section");
+  gate.id = "external-browser-gate";
+  gate.className = "install-gate";
+  gate.setAttribute("role", "alert");
+
+  const heading = document.createElement("h2");
+  heading.textContent = "Open RHMRA in Chrome or Safari";
+  const message = document.createElement("p");
+  message.id = "external-browser-message";
+  const instructions = document.createElement("p");
+  instructions.id = "external-browser-instructions";
+  const nextStep = document.createElement("p");
+  nextStep.textContent =
+    "Install RHMRA there, then scan the laptop QR code again or paste the private pairing link inside the installed app.";
+
+  const actions = document.createElement("div");
+  actions.className = "actions browser-handoff-actions";
+  const openChrome = document.createElement("a");
+  openChrome.id = "open-chrome";
+  openChrome.className = "action primary action-link";
+  openChrome.rel = "noreferrer";
+  openChrome.hidden = true;
+  openChrome.textContent = "Open in Chrome";
+  const copyLink = document.createElement("button");
+  copyLink.id = "copy-browser-link";
+  copyLink.className = "action";
+  copyLink.type = "button";
+  copyLink.textContent = "Copy phone-app link";
+  actions.append(openChrome, copyLink);
+
+  const address = document.createElement("p");
+  address.className = "browser-address";
+  const addressCode = document.createElement("code");
+  addressCode.id = "external-browser-url";
+  address.append(addressCode);
+  const status = document.createElement("p");
+  status.id = "browser-copy-status";
+  status.className = "privacy";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+
+  gate.replaceChildren(heading, message, instructions, nextStep, actions, address, status);
+  if (!gate.isConnected) {
+    const header = document.querySelector("header");
+    if (header) header.insertAdjacentElement("afterend", gate);
+    else document.body.prepend(gate);
+  }
+  return gate;
+}
+
 function showExternalBrowserGate(browserName) {
   snapshotExpiry.invalidate();
   poller?.stop();
-  element("external-browser-gate").hidden = false;
-  element("ios-install-gate").hidden = true;
+  const gate = ensureExternalBrowserGate();
+  gate.hidden = false;
+  const iosGate = element("ios-install-gate");
+  if (iosGate) iosGate.hidden = true;
   element("welcome").hidden = true;
   element("dashboard").hidden = true;
   element("paste-pairing").disabled = true;
@@ -137,6 +196,7 @@ function showExternalBrowserGate(browserName) {
   element("external-browser-message").textContent =
     `${owner}'s built-in browser cannot install RHMRA or provide the correct persistent storage for its private pairing. Setup is disabled here.`;
   element("external-browser-url").textContent = PUBLIC_PHONE_URL;
+  element("copy-browser-link").onclick = () => { void copyPublicPhoneUrl(); };
 
   const openChrome = element("open-chrome");
   if (isAndroidDevice()) {
@@ -686,7 +746,6 @@ async function pastePrivatePairingLink() {
 }
 
 function wireUi() {
-  element("copy-browser-link").addEventListener("click", () => { void copyPublicPhoneUrl(); });
   element("paste-pairing").addEventListener("click", () => { void pastePrivatePairingLink(); });
   element("connect").addEventListener("click", () => { void connect(); });
   element("connect-header")?.addEventListener("click", () => { void connect(); });
