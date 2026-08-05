@@ -19,7 +19,13 @@ import {
   GoogleDriveClient,
 } from "./google-drive.js";
 import { ForegroundPoller } from "./poller.js";
-import { requiresIosHomeScreen } from "./platform.js";
+import {
+  androidChromeIntentUrl,
+  embeddedBrowserName,
+  isAndroidDevice,
+  requiresExternalBrowser,
+  requiresIosHomeScreen,
+} from "./platform.js";
 import { cachedEnvelopeForPairing, restoreCachedDashboard } from "./cache.js";
 import { ExpiryController } from "./expiry.js";
 import {
@@ -86,6 +92,7 @@ let poller = null;
 let deferredInstall = null;
 let dashboardVisible = false;
 let connectActionLabel = "Connect Google Drive";
+const PUBLIC_PHONE_URL = new URL("../", import.meta.url).href;
 
 const snapshotExpiry = new ExpiryController({ onExpire: expireSnapshot });
 
@@ -111,6 +118,51 @@ function showIosInstallGate() {
   setHeaderConnect(false);
   setHeaderForget(false);
   setSync("install required", true);
+}
+
+function showExternalBrowserGate(browserName) {
+  snapshotExpiry.invalidate();
+  poller?.stop();
+  element("external-browser-gate").hidden = false;
+  element("ios-install-gate").hidden = true;
+  element("welcome").hidden = true;
+  element("dashboard").hidden = true;
+  element("paste-pairing").disabled = true;
+  element("connect").disabled = true;
+  element("install").disabled = true;
+  setHeaderConnect(false);
+  setHeaderForget(false);
+
+  const owner = browserName || "this app";
+  element("external-browser-message").textContent =
+    `${owner}'s built-in browser cannot install RHMRA or provide the correct persistent storage for its private pairing. Setup is disabled here.`;
+  element("external-browser-url").textContent = PUBLIC_PHONE_URL;
+
+  const openChrome = element("open-chrome");
+  if (isAndroidDevice()) {
+    openChrome.href = androidChromeIntentUrl(PUBLIC_PHONE_URL);
+    openChrome.hidden = false;
+    element("external-browser-instructions").textContent =
+      "Tap Open in Chrome. If it remains in this app, use its menu and choose Open in Chrome or Open in external browser.";
+  } else {
+    openChrome.hidden = true;
+    element("external-browser-instructions").textContent =
+      "Use this app's menu or Share control to open the page in Safari. If that option is unavailable, copy the link below and paste it into Safari.";
+  }
+  setSync("browser required", true);
+}
+
+async function copyPublicPhoneUrl() {
+  const status = element("browser-copy-status");
+  try {
+    if (typeof navigator.clipboard?.writeText !== "function") {
+      throw new Error("Clipboard API unavailable");
+    }
+    await navigator.clipboard.writeText(PUBLIC_PHONE_URL);
+    status.textContent = "Phone-app link copied. Paste it into Chrome or Safari.";
+  } catch {
+    status.textContent = "Copy was blocked here. Press and hold the address above, copy it, and paste it into Chrome or Safari.";
+  }
 }
 
 function stopStaleTab(error) {
@@ -634,6 +686,7 @@ async function pastePrivatePairingLink() {
 }
 
 function wireUi() {
+  element("copy-browser-link").addEventListener("click", () => { void copyPublicPhoneUrl(); });
   element("paste-pairing").addEventListener("click", () => { void pastePrivatePairingLink(); });
   element("connect").addEventListener("click", () => { void connect(); });
   element("connect-header")?.addEventListener("click", () => { void connect(); });
@@ -681,6 +734,12 @@ async function bootstrap() {
       showNotice("Offline installation is unavailable in this browser, but the viewer can still be used online.", "offline");
     }
   });
+
+  if (requiresExternalBrowser()) {
+    PAIRING_HASH = "";
+    showExternalBrowserGate(embeddedBrowserName());
+    return;
+  }
 
   if (requiresIosHomeScreen()) {
     PAIRING_HASH = "";

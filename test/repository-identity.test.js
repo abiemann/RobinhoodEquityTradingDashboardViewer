@@ -28,6 +28,11 @@ test("public metadata uses the canonical repository and Pages identity", async (
   assert.equal(metadata.bugs.url, `${REPOSITORY}/issues`);
   assert.ok(readme.includes(REPOSITORY));
   assert.ok(readme.includes(PAGES));
+  assert.ok(readme.indexOf(PAGES) < readme.indexOf("## What the end user needs"));
+  assert.match(
+    readme,
+    /1\. On the phone, open \[RHMRA Phone Dashboard\]\(https:\/\/abiemann\.github\.io\/RobinhoodEquityTradingDashboardViewer\/\)\./,
+  );
   assert.ok(about.includes(`${REPOSITORY}/issues`));
   assert.ok(privacy.includes(`${REPOSITORY}/issues`));
   assert.ok(terms.includes(`${REPOSITORY}/issues`));

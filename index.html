@@ -26,6 +26,19 @@
     <span id="sync" class="pill" hidden></span>
   </header>
 
+  <section id="external-browser-gate" class="install-gate" role="alert" hidden>
+    <h2>Open RHMRA in Chrome or Safari</h2>
+    <p id="external-browser-message"><strong>RHMRA setup is disabled in this in-app browser.</strong> Embedded browsers cannot install the app or provide the correct persistent storage for its private pairing.</p>
+    <p id="external-browser-instructions">Use this app's menu to open the page in your phone's browser.</p>
+    <p>Install RHMRA there, then scan the laptop QR code again or paste the private pairing link inside the installed app.</p>
+    <div class="actions browser-handoff-actions">
+      <a id="open-chrome" class="action primary action-link" href="" rel="noreferrer" hidden>Open in Chrome</a>
+      <button id="copy-browser-link" class="action" type="button">Copy phone-app link</button>
+    </div>
+    <p class="browser-address"><code id="external-browser-url"></code></p>
+    <p id="browser-copy-status" class="privacy" role="status" aria-live="polite"></p>
+  </section>
+
   <section id="ios-install-gate" class="install-gate" role="alert" hidden>
     <h2>Install before pairing</h2>
     <p><strong>Pairing is disabled in an iPhone or iPad browser.</strong> Safari and a Home Screen app keep separate private storage, so pairing here would not transfer to the installed app.</p>

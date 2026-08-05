@@ -150,7 +150,7 @@ test("mobile reload defenses keep native scrolling and ship the recovery module"
   assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.doesNotMatch(styles, /touch-action\s*:/);
   assert.match(worker, /const CACHE_PREFIX = "rhmra-phone-shell-"/);
-  assert.match(worker, /rhmra-phone-shell-v14/);
+  assert.match(worker, /rhmra-phone-shell-v15/);
   assert.match(worker, /name\.startsWith\(CACHE_PREFIX\) && name !== CACHE_NAME/);
   assert.doesNotMatch(worker, /names\.filter\(\(name\) => name !== CACHE_NAME\)/);
   assert.match(worker, /"\.\/src\/cache\.js"/);
@@ -417,6 +417,33 @@ test("iOS browser mode blocks pairing until the Home Screen app is opened", asyn
   assert.ok(app.indexOf("if (requiresIosHomeScreen())") < app.indexOf("pairing = PAIRING_HASH ?"));
   assert.match(app, /PAIRING_HASH = ""/);
   assert.match(app, /element\("paste-pairing"\)\.disabled = true/);
+});
+
+test("embedded browsers are gated before pairing without forwarding the private fragment", async () => {
+  const [app, html] = await Promise.all([source("src/app.js"), source("index.html")]);
+  assert.match(html, /id="external-browser-gate"/);
+  assert.match(html, /id="open-chrome"/);
+  assert.match(html, /id="copy-browser-link"/);
+
+  const externalCheck = app.indexOf("if (requiresExternalBrowser())");
+  assert.ok(externalCheck > 0);
+  assert.ok(externalCheck < app.indexOf("if (requiresIosHomeScreen())"));
+  assert.ok(externalCheck < app.indexOf("pairing = PAIRING_HASH ?"));
+  const externalBranch = app.slice(externalCheck, app.indexOf("if (requiresIosHomeScreen())"));
+  assert.match(externalBranch, /PAIRING_HASH = ""/);
+  assert.match(externalBranch, /showExternalBrowserGate\(embeddedBrowserName\(\)\)/);
+
+  assert.match(app, /const PUBLIC_PHONE_URL = new URL\("\.\.\/", import\.meta\.url\)\.href/);
+  const handoff = app.slice(
+    app.indexOf("function showExternalBrowserGate"),
+    app.indexOf("function stopStaleTab"),
+  );
+  assert.match(handoff, /androidChromeIntentUrl\(PUBLIC_PHONE_URL\)/);
+  assert.match(handoff, /navigator\.clipboard\.writeText\(PUBLIC_PHONE_URL\)/);
+  assert.match(handoff, /element\("paste-pairing"\)\.disabled = true/);
+  assert.match(handoff, /element\("connect"\)\.disabled = true/);
+  assert.match(handoff, /element\("install"\)\.disabled = true/);
+  assert.doesNotMatch(handoff, /PAIRING_HASH|location\.href|location\.hash/);
 });
 
 test("pairing acceptance is read, compared, and written in one transaction", async () => {

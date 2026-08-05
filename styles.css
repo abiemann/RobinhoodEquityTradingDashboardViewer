@@ -87,6 +87,15 @@ button.run-detail.open { grid-template-rows:1fr; margin-top:9px; opacity:1; poin
 .install-gate p { margin:8px 0; }
 .install-gate ol { margin:12px 0 0; padding-left:22px; }
 .install-gate li { margin:6px 0; }
+.browser-handoff-actions { margin-bottom:10px; }
+a.action-link { display:inline-block; padding:7px 13px; color:var(--text); background:#25282e;
+  border:1px solid #4a4f58; border-radius:6px; text-decoration:none; }
+a.action-link.primary { color:var(--green); border-color:var(--green); }
+a.action-link:hover { background:#30343b; }
+a.action-link:focus-visible { outline:2px solid #686e78; outline-offset:2px; }
+.browser-address { margin:8px 0; padding:8px 10px; overflow-wrap:anywhere; color:var(--green);
+  background:#191c21; border:1px solid var(--line); border-radius:6px; user-select:all; }
+.browser-address code { font:13px/1.45 ui-monospace,"Cascadia Mono",Consolas,monospace; }
 .frame-block { max-width:680px; margin:12vh auto; padding:22px; background:var(--panel); border:1px solid var(--red); border-radius:9px; }
 .frame-block h1 { color:var(--red); }
 .welcome p { margin:7px 0; }

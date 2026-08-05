@@ -4,6 +4,8 @@ RHMRA Phone Dashboard is an installable, read-only Progressive Web App for viewi
 
 The public repository is [`RobinhoodEquityTradingDashboardViewer`](https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer).
 
+**Open the phone app:** [RHMRA Phone Dashboard](https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/)
+
 The laptop uploader writes one encrypted JSON envelope to the user's Google Drive `appDataFolder`. The PWA polls that hidden app-data file directly from the browser and decrypts it locally. Google provides the user's private online data box; the user does not need to create or administer a bucket.
 
 ## What the end user needs
@@ -11,7 +13,7 @@ The laptop uploader writes one encrypted JSON envelope to the user's Google Driv
 An end user needs only:
 
 - a free Google account;
-- the public RHMRA Phone web address;
+- the public [RHMRA Phone Dashboard](https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/) web address;
 - the RHMRA laptop dashboard; and
 - the private pairing link or QR code created by **View on Phone**.
 
@@ -21,7 +23,8 @@ End users do **not** need GitHub, a Cloudflare account, a Google Cloud project, 
 
 Install the PWA before pairing so the key is saved in the installed app's own storage:
 
-1. Open the public RHMRA Phone URL on the phone.
+1. On the phone, open [RHMRA Phone Dashboard](https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/).
+   - If Messenger, Instagram, or another app opens the link in its built-in browser, use the RHMRA handoff screen to open it in **Chrome** (Android) or **Safari** (iPhone/iPad). Do not pair inside an embedded browser.
 2. Install it:
    - **Android / Chrome:** browser menu -> **Install app** or **Add to Home screen**.
    - **iPhone / Safari:** Share -> **Add to Home Screen**.
@@ -32,7 +35,7 @@ Install the PWA before pairing so the key is saved in the installed app's own st
 
 The normal camera/QR flow is still a convenient browser fallback. On iOS, however, Safari and a Home Screen web app have separate storage, so scanning before installation can pair Safari instead of the installed PWA. Pasting inside the installed app avoids that problem. Never post or forward the QR code or private link: it contains the dashboard decryption key.
 
-To prevent an easy-to-miss pairing in the wrong storage container, the viewer disables pairing when it detects an iPhone or iPad running outside Home Screen/standalone mode. Follow the displayed **Add to Home Screen** instructions, open the installed RHMRA app, and pair there.
+To prevent an easy-to-miss pairing in the wrong storage container, the viewer disables pairing when it detects a known in-app browser or an iPhone/iPad running outside Home Screen/standalone mode. A website cannot force every social app to launch the system browser, so the handoff provides a best-effort **Open in Chrome** action plus a public-link copy fallback and manual Chrome/Safari instructions. The private pairing fragment is never forwarded during this handoff. Open the installed RHMRA app and pair there.
 
 The pairing survives future laptop sessions. The laptop must reuse the same `share_id` and key, update the same Drive file, and advance `sequence`. Phone Google access tokens deliberately stay in browser memory. After an app relaunch or token expiry, a previously verified pairing shows **Resume Google Drive**; that user gesture obtains a new short-lived token while reusing the existing Google grant, so consent is requested again only if the grant is missing or was revoked. A reload can immediately restore the last verified dashboard from the original AES-GCM encrypted envelope saved in the pairing record; on the phone, the decrypted payload and Google access token are never persisted.
 
