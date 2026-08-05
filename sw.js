@@ -1,4 +1,5 @@
-const CACHE_NAME = "rhmra-phone-shell-v13";
+const CACHE_PREFIX = "rhmra-phone-shell-";
+const CACHE_NAME = "rhmra-phone-shell-v14";
 const SHELL_FILES = [
   "./", "./index.html", "./about.html", "./privacy.html", "./terms.html", "./styles.css", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png",
@@ -15,7 +16,11 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((names) => Promise.all(names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))))
+    // Cache Storage belongs to the entire abiemann.github.io origin, not just
+    // this project path. Remove only older RHMRA phone-shell caches.
+    caches.keys().then((names) => Promise.all(names
+      .filter((name) => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME)
+      .map((name) => caches.delete(name))))
       .then(() => self.clients.claim()),
   );
 });

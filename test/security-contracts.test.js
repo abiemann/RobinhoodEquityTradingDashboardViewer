@@ -149,7 +149,10 @@ test("mobile reload defenses keep native scrolling and ship the recovery module"
   assert.match(styles, /html\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.match(styles, /body\s*\{[^}]*overscroll-behavior-y:contain;/s);
   assert.doesNotMatch(styles, /touch-action\s*:/);
-  assert.match(worker, /rhmra-phone-shell-v13/);
+  assert.match(worker, /const CACHE_PREFIX = "rhmra-phone-shell-"/);
+  assert.match(worker, /rhmra-phone-shell-v14/);
+  assert.match(worker, /name\.startsWith\(CACHE_PREFIX\) && name !== CACHE_NAME/);
+  assert.doesNotMatch(worker, /names\.filter\(\(name\) => name !== CACHE_NAME\)/);
   assert.match(worker, /"\.\/src\/cache\.js"/);
   assert.match(worker, /"\.\/src\/expiry\.js"/);
 });
