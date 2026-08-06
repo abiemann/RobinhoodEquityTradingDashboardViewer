@@ -4,7 +4,7 @@ RHMRA Phone Dashboard is an installable, read-only Progressive Web App for viewi
 
 <p align="center">
   <a href="https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/" title="Source: https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer">
-    <img src="assets/rhmra-phone-dashboard.png" alt="RHMRA Phone Dashboard on a phone" width="420">
+    <img src="assets/rhmra-phone-dashboard.png" alt="RHMRA Phone Dashboard on a phone" width="315">
   </a>
 </p>
 
