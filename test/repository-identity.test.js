@@ -29,7 +29,11 @@ test("public metadata uses the canonical repository and Pages identity", async (
   assert.ok(readme.includes(REPOSITORY));
   assert.ok(readme.includes(PAGES));
   assert.ok(readme.indexOf(PAGES) < readme.indexOf("## What the end user needs"));
-  assert.ok(readme.indexOf("Normal setup starts on the laptop") < readme.indexOf("Alternate setup"));
+  const endUserNeeds = readme.indexOf("## What the end user needs");
+  const normalSetup = readme.indexOf("Normal setup starts on the laptop");
+  assert.ok(normalSetup > 0);
+  assert.ok(normalSetup < endUserNeeds);
+  assert.doesNotMatch(readme.slice(0, endUserNeeds), /^\*\*Alternate setup:\*\*/m);
   assert.match(readme, /normal setup does not require the user to find or type a web address/);
   assert.match(
     readme,

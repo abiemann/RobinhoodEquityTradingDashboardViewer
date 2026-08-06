@@ -2,11 +2,13 @@
 
 RHMRA Phone Dashboard is an installable, read-only Progressive Web App for viewing an encrypted RHMRA dashboard on Android or iOS. It is a static site: there is no RHMRA account server, shared financial-data backend, or laptop web server. A separate maintainer-operated OAuth relay handles only the companion Agent's laptop token exchanges; it never receives dashboard data.
 
-The public repository is [`RobinhoodEquityTradingDashboardViewer`](https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer).
+<p align="center">
+  <a href="https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/" title="Source: https://github.com/abiemann/RobinhoodEquityTradingDashboardViewer">
+    <img src="assets/rhmra-phone-dashboard.png" alt="RHMRA Phone Dashboard on a phone" width="420">
+  </a>
+</p>
 
 **Normal setup starts on the laptop:** open the RHMRA dashboard, select **View on Phone**, create the QR code, and scan it with the phone's camera.
-
-**Alternate setup:** [Open RHMRA Phone Dashboard directly](https://abiemann.github.io/RobinhoodEquityTradingDashboardViewer/)
 
 The laptop uploader writes one encrypted JSON envelope to the user's Google Drive `appDataFolder`. The PWA polls that hidden app-data file directly from the browser and decrypts it locally. Google provides the user's private online data box; the user does not need to create or administer a bucket.
 
