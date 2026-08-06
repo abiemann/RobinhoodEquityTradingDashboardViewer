@@ -132,6 +132,32 @@ test("schema v1 accepts both legacy and enhanced P&L payloads", () => {
   qualifiedEstimate.pnl_reconciliation.status = "qualified";
   assert.equal(validatePayload(qualifiedEstimate, envelope), qualifiedEstimate);
 });
+test("legacy payload preserves explicitly unavailable realized P&L", () => {
+  const capturedAt = "2026-08-03T12:00:00.000Z";
+  const expiresAt = "2026-08-03T14:00:00.000Z";
+  const envelope = { captured_at: capturedAt, expires_at: expiresAt };
+  const unavailable = payload(capturedAt, expiresAt);
+  unavailable.snapshot.realized_pnl_today = null;
+
+  assert.equal(validatePayload(unavailable, envelope), unavailable);
+
+  const enhancedUnavailable = enhancedPayload(capturedAt, expiresAt);
+  enhancedUnavailable.snapshot.realized_pnl_today = null;
+  assert.throws(
+    () => validatePayload(enhancedUnavailable, envelope),
+    (error) => error instanceof ProtocolError && error.code === "invalid_pnl_reconciliation",
+  );
+
+  for (const invalid of ["unavailable", undefined, Number.NaN]) {
+    const value = payload(capturedAt, expiresAt);
+    value.snapshot.realized_pnl_today = invalid;
+    assert.throws(
+      () => validatePayload(value, envelope),
+      (error) => error instanceof ProtocolError && error.code === "invalid_snapshot",
+    );
+  }
+});
+
 
 test("enhanced P&L payloads reject legacy-era mixing and invalid cents or quality", () => {
   const capturedAt = "2026-08-03T12:00:00.000Z";

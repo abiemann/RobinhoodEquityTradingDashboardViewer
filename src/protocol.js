@@ -159,7 +159,8 @@ export function validatePayload(value, envelope) {
   if (!exactObject(snapshot, snapshotKeys) || !boundedText(snapshot.rules_version, 128) ||
       !boundedText(snapshot.run_start_pt, 64) || !Number.isFinite(Date.parse(snapshot.run_start_pt)) ||
       Date.parse(snapshot.run_start_pt) > Date.parse(value.captured_at) + 120_000 ||
-      !boundedText(snapshot.session, 32) || !finite(snapshot.realized_pnl_today) ||
+      !boundedText(snapshot.session, 32) ||
+      !(snapshot.realized_pnl_today === null || finite(snapshot.realized_pnl_today)) ||
       !exactObject(snapshot.account, ["total_value", "cash", "buying_power"]) ||
       ![snapshot.account.total_value, snapshot.account.cash, snapshot.account.buying_power].every(finite) ||
       !Array.isArray(snapshot.positions) || snapshot.positions.length > 100) {

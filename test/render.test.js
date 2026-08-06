@@ -30,6 +30,13 @@ test("enhanced broker card renders validated integer cents instead of floating-p
   assert.equal(brokerRealizedTodayPresentation(enhanced), "$2.68");
   assert.equal(brokerRealizedTodayPresentation(legacy), "$2.67");
 });
+test("broker card renders unavailable P&L telemetry honestly", () => {
+  assert.equal(
+    brokerRealizedTodayPresentation({ snapshot: { realized_pnl_today: null } }),
+    "unavailable",
+  );
+});
+
 
 test("broker and strategy agreement does not add a success banner", () => {
   const presentation = pnlReconciliationPresentation({
